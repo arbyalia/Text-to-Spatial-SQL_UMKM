@@ -1,0 +1,30 @@
+# === Framework & Server ===
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
+# === Database (Async) ===
+sqlalchemy[asyncio]>=2.0.36
+asyncpg>=0.30.0
+geoalchemy2>=0.15.0
+shapely>=2.0.0
+
+# === Validation & Config ===
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+
+# === HTTP Client (Async untuk LLM) ===
+httpx>=0.28.0
+
+# === LLM SDKs ===
+openai>=1.55.0
+google-genai>=1.0.0
+
+# === SQL Parser/Validator ===
+sqlglot>=26.0.0
+
+# === Frontend ===
+streamlit>=1.40.0
+
+# === Testing ===
+pytest>=8.3.0
+pytest-asyncio>=0.25.0

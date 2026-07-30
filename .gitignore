@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+.env
+.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated SQL files (extracted from golang-migrate format)
+scripts/*_up.sql
+
+# Internal documentation (not for portfolio)
+00_Master_Instructions.md
+01_Arsitektur_Sistem.md
+02_Skema_Database.md
+03_Kontrak_API.md
+04_Otak_AI_dan_Keamanan.md
+05_Roadmap_Eksekusi.md
+
+# Logs
+*.log
