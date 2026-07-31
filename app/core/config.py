@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres@localhost:5432/ta_umkm"
+    AI_EXECUTOR_PASSWORD: str = "ai_executor_ro"
     GEMINI_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     DEEPSEEK_API_KEY: str = ""
