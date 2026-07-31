@@ -113,15 +113,14 @@ async def _timed_task(coro) -> tuple[LLMResponse, int]:
     return result, latency_ms
 
 
+async def _unavailable_model() -> LLMResponse:
+    return LLMResponse(error="model unavailable: no API key")
+
+
 async def generate_sql_parallel(query: str) -> dict[str, tuple[LLMResponse, int]]:
-    """Call all three LLMs in parallel, returning response and latency per model."""
+    """Call available LLMs in parallel, returning response and latency per model."""
     tasks = {
         "gemini": _timed_task(_call_gemini(query)),
-        "gpt": _timed_task(
-            _call_openai_compatible(
-                settings.OPENAI_API_KEY, "https://api.openai.com/v1", GPT_MODEL, query
-            )
-        ),
         "deepseek": _timed_task(
             _call_openai_compatible(
                 settings.DEEPSEEK_API_KEY,
@@ -132,5 +131,14 @@ async def generate_sql_parallel(query: str) -> dict[str, tuple[LLMResponse, int]
             )
         ),
     }
+    if settings.OPENAI_API_KEY:
+        tasks["gpt"] = _timed_task(
+            _call_openai_compatible(
+                settings.OPENAI_API_KEY, "https://api.openai.com/v1", GPT_MODEL, query
+            )
+        )
+    else:
+        tasks["gpt"] = _timed_task(_unavailable_model())
+
     results = await asyncio.gather(*tasks.values())
     return dict(zip(tasks.keys(), results))

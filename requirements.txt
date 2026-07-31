@@ -25,6 +25,7 @@ sqlglot>=26.0.0
 
 # === Frontend ===
 streamlit>=1.40.0
+pandas>=2.2.0
 
 # === Testing ===
 pytest>=8.3.0
