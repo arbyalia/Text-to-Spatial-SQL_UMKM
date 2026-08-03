@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import APIRouter
 
 from app.core.security import execute_ai_sql, validate_sql, validate_user_query
@@ -5,6 +7,12 @@ from app.schemas.search import ModelResult, SearchAiRequest, SearchAiResponse
 from app.services.llm_service import LLMResponse, generate_sql_parallel
 
 router = APIRouter(tags=["search"])
+
+
+def _normalize(row: dict) -> dict:
+    return {
+        k: (float(v) if isinstance(v, Decimal) else v) for k, v in row.items()
+    }
 
 
 async def _build_result(response: LLMResponse, latency_ms: int) -> ModelResult:
@@ -36,7 +44,7 @@ async def _build_result(response: LLMResponse, latency_ms: int) -> ModelResult:
         )
 
     try:
-        rows = await execute_ai_sql(sanitized_sql)
+        rows = [_normalize(r) for r in await execute_ai_sql(sanitized_sql)]
     except Exception as e:
         return ModelResult(
             status="db_execution_error",
