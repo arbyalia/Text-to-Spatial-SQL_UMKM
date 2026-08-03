@@ -6,8 +6,8 @@ import streamlit as st
 
 BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000")
 
-MODEL_NAMES = ["gemini", "gpt", "deepseek"]
-MODEL_LABELS = {"gemini": "Gemini", "gpt": "GPT", "deepseek": "DeepSeek"}
+MODEL_NAMES = ["deepseek", "gpt", "gemini"]
+MODEL_LABELS = {"deepseek": "DeepSeek", "gpt": "GPT", "gemini": "Gemini"}
 
 st.set_page_config(page_title="Text-to-Spatial-SQL UMKM", layout="wide")
 st.title("Komparasi Model AI: Text-to-Spatial-SQL (Coffee Shop Depok)")
@@ -27,6 +27,19 @@ def fetch_ai_results(user_query: str) -> dict | None:
     except httpx.HTTPError as e:
         st.error(f"Gagal terhubung ke backend: {e}")
         return None
+
+
+ERROR_MESSAGES = {
+    "model unavailable: no API key": "API key belum diatur",
+}
+
+
+def summarize(result: dict) -> str:
+    status = result["status"]
+    if status == "success":
+        count = len(result["data"])
+        return f"{count} coffee shop ditemukan ({result['latency_ms']}ms)"
+    return ERROR_MESSAGES.get(result.get("error_message") or "", status)
 
 
 if st.button("Cari", type="primary") and query:
@@ -51,25 +64,32 @@ if st.button("Cari", type="primary") and query:
         cols = st.columns(len(MODEL_NAMES))
         for col, model in zip(cols, MODEL_NAMES):
             with col:
-                st.subheader(MODEL_LABELS[model])
                 if model not in results:
+                    st.subheader(MODEL_LABELS[model])
                     st.warning("Tidak ada hasil.")
                     continue
 
                 result = results[model]
                 status = result["status"]
+                st.subheader(f"{MODEL_LABELS[model]} — {summarize(result)}")
 
                 if status == "success":
-                    st.success(f"Status: {status}")
-                    df = pd.DataFrame(result["data"])
-                    st.dataframe(df, use_container_width=True)
+                    if result["data"]:
+                        df = pd.DataFrame(result["data"])
+                        st.dataframe(df, use_container_width=True)
+                    else:
+                        st.info("Tidak ada coffee shop ditemukan dalam radius.")
                     if result["sql"]:
                         with st.expander("SQL mentah"):
                             st.code(result["sql"], language="sql")
                 else:
                     st.error(f"Status: {status}")
                     if result["error_message"]:
-                        st.write(result["error_message"])
+                        st.write(
+                            ERROR_MESSAGES.get(
+                                result["error_message"], result["error_message"]
+                            )
+                        )
                     with st.expander("Detail"):
                         st.write("SQL:", result["sql"])
                         st.write("Data:", result["data"])
