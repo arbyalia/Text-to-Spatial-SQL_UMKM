@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from app.services import llm_service
 from app.services.llm_service import parse_sql_response
-from app.services.model_registry import ModelSpec
+from app.services.model_registry import MODELS, ModelSpec
 
 
 def test_strict_json():
@@ -49,3 +49,17 @@ async def test_shared_generation_params(monkeypatch):
     config = gemini.kwargs["config"]
     assert config.temperature == 0
     assert config.max_output_tokens == 1024 and config.seed == 42
+
+
+async def test_generate_sql_error_includes_cause(monkeypatch):
+    async def failing_call(spec, system, user):
+        try:
+            raise ConnectionResetError("peer reset")
+        except ConnectionResetError as cause:
+            raise RuntimeError("Connection error.") from cause
+
+    monkeypatch.setattr(llm_service, "_call_openai_compatible", failing_call)
+    result = await llm_service.generate_sql(MODELS["gpt-oss-20b"], "system", "user")
+    assert result.error == (
+        "RuntimeError: Connection error. (cause: ConnectionResetError: peer reset)"
+    )

@@ -82,6 +82,7 @@ Uji statistik (dihitung otomatis oleh `experiments/evaluate.py`):
 
 1. Jalankan API dengan `EXPERIMENT_LOG_PATH` aktif.
 2. `python -m experiments.run_benchmark ...`: setiap request hanya meminta satu model, urutan percobaan diacak (seed tetap), dan percobaan yang sudah selesai dilewati jika skrip dijalankan ulang.
+   Kegagalan koneksi ke provider (`APIConnectionError`, artinya tidak ada respons dari model) bukan jawaban model, jadi tidak dihitung sebagai kegagalan model. Percobaan seperti itu diulang sampai 3 kali dengan jeda 5 detik. Jika tetap gagal, percobaan dilewati, tidak ditulis ke output, dan akan dicoba lagi saat skrip dijalankan ulang. Jumlah pengulangan dicatat di field `connection_retries` pada setiap baris output. Error lain dari provider (misalnya model tidak ditemukan) tetap dicatat dengan status `error`.
 3. `python -m experiments.evaluate ...` menghasilkan `attempts.csv`, `summary.csv`, `status_counts.csv`, `accuracy_by_category.csv`, dan `significance.json`.
 
 ## Anggaran kuota (Groq free tier)
@@ -107,6 +108,12 @@ Cek ulang batas di https://console.groq.com/settings/limits sebelum eksperimen f
 ## Riwayat perubahan protokol
 
 Setiap perubahan prompt, parameter model, sanitizer, atau metrik dicatat di sini. `PROMPT_VERSION` (di `app/services/prompt.py`) ikut tercatat di response `/api/v1/search/ai`, log JSONL, dan setiap baris output `run_benchmark.py`, sehingga hasil dari versi berbeda tidak tercampur.
+
+### 10 Oktober 2026, penanganan kegagalan koneksi (prompt tetap `v2-2026-10-10`)
+
+1. `run_benchmark.py` mengulang percobaan yang gagal karena `APIConnectionError` sampai 3 kali dengan jeda 5 detik. Jika tetap gagal, percobaan dilewati dan tidak dicatat sebagai jawaban model. Setiap baris output memiliki field baru `connection_retries`. Alasan: kegagalan koneksi berarti model tidak pernah menjawab, sehingga mencatatnya sebagai status `error` akan menurunkan akurasi model karena masalah jaringan.
+2. Pesan error di response API sekarang juga memuat tipe dan pesan penyebab exception (`e.__cause__`), agar sumber kegagalan koneksi bisa dilacak.
+3. Teks prompt, parameter model, sanitizer, dan metrik tidak berubah, sehingga `PROMPT_VERSION` tetap `v2-2026-10-10`.
 
 ### 10 Oktober 2026, penggantian model (prompt tetap `v2-2026-10-10`)
 

@@ -12,6 +12,7 @@ import argparse
 import json
 import random
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -19,11 +20,56 @@ import httpx
 
 from app.core.config import settings
 
+MAX_RATE_LIMIT_ATTEMPTS = 5
+MAX_CONNECTION_RETRIES = 3
+CONNECTION_RETRY_DELAY_S = 5
+
+
+class RetriesExhausted(Exception):
+    pass
+
 
 def load_jsonl(path: Path) -> list[dict]:
     if not path.exists():
         return []
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def request_attempt(
+    client: httpx.Client, payload: dict, model: str, sleep: Callable[[float], None] = time.sleep
+) -> tuple[dict, int, int]:
+    """POST one attempt; return (response body, http_ms, connection_retries).
+
+    Rate limits and provider connection failures (no answer from the model) are retried
+    instead of being recorded as model answers.
+    """
+    rate_limited = connection_retries = 0
+    while True:
+        start = time.perf_counter()
+        resp = client.post("/api/v1/search/ai", json=payload)
+        http_ms = int((time.perf_counter() - start) * 1000)
+        if resp.status_code == 429:
+            rate_limited += 1
+            if rate_limited >= MAX_RATE_LIMIT_ATTEMPTS:
+                raise RetriesExhausted("still rate limited")
+            sleep(int(resp.headers.get("Retry-After", 60)))
+            continue
+        resp.raise_for_status()
+        body = resp.json()
+        error = body["results"][model]["error_message"] or ""
+        if "RateLimit" in error:
+            rate_limited += 1
+            if rate_limited >= MAX_RATE_LIMIT_ATTEMPTS:
+                raise RetriesExhausted("still rate limited")
+            sleep(20 * rate_limited)
+            continue
+        if error.startswith("APIConnectionError"):
+            if connection_retries >= MAX_CONNECTION_RETRIES:
+                raise RetriesExhausted(f"connection failed after {connection_retries} retries")
+            connection_retries += 1
+            sleep(CONNECTION_RETRY_DELAY_S)
+            continue
+        return body, http_ms, connection_retries
 
 
 def main() -> None:
@@ -83,22 +129,12 @@ def main() -> None:
                 "models": [model],
                 "prompt_strategy": strategy,
             }
-            for attempt in range(5):
-                start = time.perf_counter()
-                resp = client.post("/api/v1/search/ai", json=payload)
-                http_ms = int((time.perf_counter() - start) * 1000)
-                if resp.status_code == 429:
-                    time.sleep(int(resp.headers.get("Retry-After", 60)))
-                    continue
-                resp.raise_for_status()
-                body = resp.json()
-                result = body["results"][model]
-                if "RateLimit" not in (result["error_message"] or ""):
-                    break
-                time.sleep(20 * (attempt + 1))
-            else:
-                print(f"{q['id']} {model} {strategy} r{rep}: still rate limited, skipped")
+            try:
+                body, http_ms, connection_retries = request_attempt(client, payload, model)
+            except RetriesExhausted as e:
+                print(f"{q['id']} {model} {strategy} r{rep}: {e}, skipped")
                 continue
+            result = body["results"][model]
 
             out.write(
                 json.dumps(
@@ -112,6 +148,7 @@ def main() -> None:
                         "prompt_version": body["prompt_version"],
                         "repeat": rep,
                         "http_ms": http_ms,
+                        "connection_retries": connection_retries,
                         **{k: v for k, v in result.items() if k not in ("model", "model_id")},
                     },
                     ensure_ascii=False,

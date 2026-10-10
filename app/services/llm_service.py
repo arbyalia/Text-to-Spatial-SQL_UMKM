@@ -122,6 +122,10 @@ async def generate_sql(spec: ModelSpec, system: str, user: str) -> LLMResponse:
     except TimeoutError:
         result = LLMResponse(error="timeout")
     except Exception as e:
-        result = LLMResponse(error=f"{e.__class__.__name__}: {str(e)[:200]}")
+        message = f"{e.__class__.__name__}: {str(e)[:200]}"
+        if e.__cause__ is not None:
+            cause = e.__cause__
+            message += f" (cause: {cause.__class__.__name__}: {str(cause)[:200]})"
+        result = LLMResponse(error=message)
     result.latency_ms = int((time.perf_counter() - start) * 1000)
     return result
