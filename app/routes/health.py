@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from app.core.database import engine
+from app.core.database import readonly_engine
 
 router = APIRouter(tags=["health"])
 
@@ -10,7 +10,7 @@ router = APIRouter(tags=["health"])
 @router.get("/health")
 async def health():
     try:
-        async with engine.connect() as conn:
+        async with readonly_engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         return {"status": "ok", "database": "connected"}
     except Exception:

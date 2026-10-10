@@ -14,7 +14,7 @@ asyncio.gather ── model 1 ── model 2 ── model 3   (client async, par
   │  per model:
   │    LLM ──► {"sql": ...}
   │    Lapis 2: sqlglot (SELECT tunggal, allowlist tabel/fungsi, batas radius, LIMIT)
-  │    Lapis 3+4: eksekusi lewat role read-only, transaksi READ ONLY, statement_timeout
+  │    Lapis 3+4: eksekusi lewat readonly_engine, transaksi READ ONLY, statement_timeout
   ▼
 Respons per model: status, SQL, latensi (llm/db/total), token, data
   │  (opsional) satu baris JSON per request ke EXPERIMENT_LOG_PATH
@@ -31,8 +31,9 @@ app/
   main.py                  lifespan: verifikasi role executor, muat katalog kategori/kecamatan
   core/
     config.py              pengaturan dari .env
-    database.py            engine utama (superuser/owner, hanya untuk endpoint manual dan katalog)
-    security.py            sanitizer sqlglot dan eksekusi read-only
+    database.py            engine owner (DATABASE_URL, hanya untuk scripts/) dan readonly_engine
+                           (AI_EXECUTOR_DATABASE_URL, dipakai semua query API)
+    security.py            sanitizer sqlglot dan eksekusi read-only lewat readonly_engine
     auth.py                header X-API-Key opsional
     experiment_log.py      log JSONL per request
   services/
@@ -58,4 +59,5 @@ tests/                     unit test
 | Semua model memakai `temperature=0`, mode JSON, prompt identik | Variabel independen hanya model dan strategi prompt |
 | Model dikonfigurasi lewat `model_registry.py` + `LLM_MODELS` | Menambah atau mengganti model tanpa mengubah kode endpoint |
 | Kategori dan kecamatan dimuat dari database | Prompt otomatis ikut berubah saat dataset UMKM bertambah kategori |
+| API hanya memakai role read-only (`readonly_engine`) | Kredensial superuser/owner tidak perlu ada di server API; hanya skrip setup dan cek data yang memakainya |
 | Lokasi pengguna dikirim klien | "Terdekat dari sini" memakai koordinat nyata, bukan titik default |

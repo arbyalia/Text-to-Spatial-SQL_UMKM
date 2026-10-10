@@ -9,6 +9,8 @@ Sistem ini mengeksekusi SQL yang ditulis model AI eksternal, jadi SQL tersebut d
 | 3. Hak akses database | Role `readonly_ai_executor`: hanya `SELECT` pada 6 tabel, `default_transaction_read_only`, transaksi `READ ONLY`. API menolak startup jika role ini superuser | Apa pun yang lolos lapis 2 tetap tidak bisa menulis atau membaca tabel lain |
 | 4. Batas waktu | `SET LOCAL statement_timeout` (default 5000 ms) | Kueri berat atau sengaja diperlambat |
 
+Seluruh API memakai satu koneksi database, yaitu `readonly_engine` di `app/core/database.py` (`AI_EXECUTOR_DATABASE_URL`, role `readonly_ai_executor`). Ini berlaku untuk SQL dari LLM, `/api/v1/search/manual`, `/health`, dan pemuatan katalog saat startup. Kredensial owner (`DATABASE_URL`) hanya dipakai skrip di `scripts/` dan tidak dibutuhkan untuk menjalankan API, sehingga kebocoran konfigurasi server API tidak memberi akses tulis ke database.
+
 Allowlist fungsi: semua fungsi PostGIS (`st_*`), fungsi SQL standar yang dikenali `sqlglot` (COUNT, ROUND, AVG, ...), dan beberapa fungsi string/JSON. Fungsi lain ditolak.
 
 Pengujian:

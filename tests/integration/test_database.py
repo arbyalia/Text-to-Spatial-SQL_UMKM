@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 
+import httpx
 import pytest
 from sqlalchemy.exc import DBAPIError
 
@@ -12,6 +13,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 from app.core.security import execute_ai_sql, validate_sql, verify_executor_role  # noqa: E402
+from app.main import app  # noqa: E402
 from app.services.catalog import load_catalog  # noqa: E402
 
 DATASET = Path(__file__).parents[2] / "experiments" / "dataset" / "pilot_questions.jsonl"
@@ -46,3 +48,14 @@ async def test_gold_sql_returns_rows(question):
 async def test_executor_cannot_write_or_lock(sql):
     with pytest.raises(DBAPIError):
         await execute_ai_sql(sql)
+
+
+async def test_api_endpoints_work_with_readonly_role():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        assert (await client.get("/health")).json()["database"] == "connected"
+        resp = await client.post(
+            "/api/v1/search/manual",
+            json={"latitude": -6.36043, "longitude": 106.83178, "radius_meter": 1000},
+        )
+    assert resp.status_code == 200 and resp.json()["count"] > 0

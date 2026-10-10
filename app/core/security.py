@@ -3,10 +3,10 @@ from dataclasses import dataclass
 
 import sqlglot
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlglot import exp
 
 from app.core.config import settings
+from app.core.database import readonly_engine
 
 ALLOWED_TABLES = {
     "umkm.umkm",
@@ -162,14 +162,9 @@ def validate_sql(sql: str | None) -> SqlValidation:
     return SqlValidation(True, "success", _apply_limit(expression).sql(dialect="postgres"))
 
 
-ai_executor_engine: AsyncEngine = create_async_engine(
-    settings.AI_EXECUTOR_DATABASE_URL, pool_pre_ping=True
-)
-
-
 async def verify_executor_role() -> str:
     """Lapis 3: refuse to run AI SQL through a role that can write or is superuser."""
-    async with ai_executor_engine.connect() as conn:
+    async with readonly_engine.connect() as conn:
         row = (
             await conn.execute(
                 text(
@@ -186,7 +181,7 @@ async def verify_executor_role() -> str:
 async def execute_ai_sql(sql: str) -> tuple[list[dict], int]:
     """Lapis 3 & 4: run validated SQL in a read-only transaction with a statement timeout."""
     start = time.perf_counter()
-    async with ai_executor_engine.connect() as conn:
+    async with readonly_engine.connect() as conn:
         await conn.execute(text("SET TRANSACTION READ ONLY"))
         await conn.execute(
             text(f"SET LOCAL statement_timeout = {int(settings.DB_STATEMENT_TIMEOUT_MS)}")

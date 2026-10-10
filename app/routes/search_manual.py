@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 
 from app.core.auth import require_api_key
-from app.core.database import engine
+from app.core.database import readonly_engine
 from app.schemas.search import SearchManualRequest, SearchManualResponse, UmkmResult
 
 router = APIRouter(prefix="/api/v1", tags=["search"], dependencies=[Depends(require_api_key)])
@@ -42,7 +42,7 @@ async def search_manual(req: SearchManualRequest):
     ORDER BY jarak_meter ASC
     """
 
-    async with engine.connect() as conn:
+    async with readonly_engine.connect() as conn:
         rows = (await conn.execute(text(sql), params)).mappings().all()
 
     results = [UmkmResult(**dict(r)) for r in rows]

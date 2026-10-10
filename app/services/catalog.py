@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.core.database import engine
+from app.core.database import readonly_engine
 
 
 @dataclass
@@ -17,7 +17,7 @@ catalog = Catalog()
 
 async def load_catalog() -> Catalog:
     """Load UMKM categories and study-area district names used to build the prompt."""
-    async with engine.connect() as conn:
+    async with readonly_engine.connect() as conn:
         categories = (
             await conn.execute(text("SELECT id, nama FROM umkm.jenis_umkm ORDER BY id"))
         ).all()
