@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     LLM_MODELS: str = "llama-3.3-70b,qwen3.8-27b,gpt-oss-120b"
     LLM_TIMEOUT_S: float = 30.0
     DEFAULT_PROMPT_STRATEGY: str = "few_shot"
+    FEW_SHOT_CATEGORY: str = "Coffee Shop"
 
     # Study area
     STUDY_AREA_NAME: str = "Kota Depok, Jawa Barat"

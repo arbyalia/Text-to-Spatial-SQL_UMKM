@@ -1,13 +1,15 @@
-from app.core.security import validate_sql
+from app.core.security import MAX_RADIUS_METER, validate_sql
 from app.services.catalog import Catalog
-from app.services.prompt import FEW_SHOT_EXAMPLES, build_system_prompt, build_user_message
+from app.services.prompt import build_system_prompt, build_user_message, few_shot_examples
 
-CATALOG = Catalog(categories={1: "Coffee Shop", 2: "Laundry"}, districts=["BEJI", "CINERE"])
+CATALOG = Catalog(categories={1: "Laundry", 7: "Coffee Shop"}, districts=["BEJI", "CINERE"])
+NO_COFFEE = Catalog(categories={1: "Laundry"}, districts=["BEJI"])
 
 
 def test_prompt_lists_categories_and_districts():
     prompt = build_system_prompt(CATALOG, "zero_shot")
-    assert "1: Coffee Shop" in prompt and "2: Laundry" in prompt
+    assert "1: Laundry" in prompt and "7: Coffee Shop" in prompt
+    assert f"Radius maksimum {MAX_RADIUS_METER} meter" in prompt
     assert "BEJI, CINERE" in prompt
     assert "regency_id = 3276" in prompt
     assert "Contoh:" not in prompt
@@ -20,8 +22,26 @@ def test_few_shot_adds_examples():
 
 
 def test_few_shot_examples_pass_sanitizer():
-    for _, sql in FEW_SHOT_EXAMPLES:
-        assert validate_sql(sql.format(coffee_id=1, regency_id=3276)).valid
+    for catalog in (CATALOG, NO_COFFEE):
+        for _, sql in few_shot_examples(catalog):
+            assert validate_sql(sql).valid
+
+
+def test_first_example_uses_few_shot_category():
+    question, sql = few_shot_examples(CATALOG)[0]
+    assert question.startswith("kafe ") and "u.jenis_umkm_id = 7 " in sql
+
+
+def test_first_example_without_category():
+    question, sql = few_shot_examples(NO_COFFEE)[0]
+    assert question.startswith("UMKM ") and "jenis_umkm_id" not in sql
+    assert "u.location IS NOT NULL AND ST_DWithin(" in sql
+
+
+def test_aggregation_example_does_not_use_district_id():
+    _, sql = few_shot_examples(CATALOG)[2]
+    assert "district_id" not in sql and "JOIN umkm.jenis_umkm" in sql
+    assert "GROUP BY j.nama" in sql and "::geography, 2000)" in sql
 
 
 def test_user_message_carries_location():

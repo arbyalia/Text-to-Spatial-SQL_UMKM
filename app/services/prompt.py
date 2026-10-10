@@ -1,9 +1,12 @@
 from typing import Literal
 
 from app.core.config import settings
+from app.core.security import MAX_RADIUS_METER
 from app.services.catalog import Catalog
 
 PromptStrategy = Literal["zero_shot", "few_shot"]
+
+PROMPT_VERSION = "v1-2026-10-10"
 
 SCHEMA = """umkm.umkm (data UMKM):
 - id: integer, primary key
@@ -40,17 +43,17 @@ RULES = """Aturan:
    b. Jika pengguna menyebut koordinat, gunakan koordinat tersebut.
    c. Jika pengguna menyebut nama kecamatan, ambil titik pusatnya dari public.districts dengan d.regency_id = {regency_id} dan d.name ILIKE '%<nama>%'.
    d. Jika tidak ada lokasi sama sekali, gunakan titik default: latitude {lat}, longitude {lon}.
-7. Radius: konversi kilometer ke meter. Jika radius tidak disebut, gunakan {radius} meter. Radius maksimum 5000 meter.
+7. Radius: konversi kilometer ke meter. Jika radius tidak disebut, gunakan {radius} meter. Radius maksimum {max_radius} meter.
 8. Filter kategori dengan u.jenis_umkm_id hanya jika pengguna menyebut jenis UMKM. Gunakan id dari daftar kategori.
 9. Selalu tambahkan LIMIT (default 100) kecuali kueri agregasi.
 10. Jawab hanya dengan JSON murni tanpa markdown: {{"sql": "SELECT ..."}}"""
 
 FEW_SHOT_EXAMPLES = [
     (
-        "kafe dalam radius 1 km dari koordinat -6.39, 106.82",
+        "{subject} dalam radius 1 km dari koordinat -6.39, 106.82",
         "SELECT u.id, u.nama, u.alamat, u.rating, u.jml_ulasan, u.latitude, u.longitude, "
         "ROUND(ST_Distance(u.location::geography, ST_SetSRID(ST_MakePoint(106.82, -6.39), 4326)::geography)::numeric, 2) AS jarak_meter "
-        "FROM umkm.umkm AS u WHERE u.location IS NOT NULL AND u.jenis_umkm_id = {coffee_id} "
+        "FROM umkm.umkm AS u WHERE u.location IS NOT NULL {category_filter}"
         "AND ST_DWithin(u.location::geography, ST_SetSRID(ST_MakePoint(106.82, -6.39), 4326)::geography, 1000) "
         "ORDER BY jarak_meter ASC LIMIT 100",
     ),
@@ -63,12 +66,32 @@ FEW_SHOT_EXAMPLES = [
         "WHERE u.location IS NOT NULL ORDER BY u.location <-> ref.center LIMIT 3",
     ),
     (
-        "jumlah UMKM yang dekat stasiun per kecamatan",
-        "SELECT d.name AS kecamatan, COUNT(*) AS jumlah FROM umkm.umkm AS u "
-        "JOIN public.districts AS d ON d.id = u.district_id "
-        "WHERE u.dekat_fasilitas ILIKE '%stasiun%' GROUP BY d.name ORDER BY jumlah DESC",
+        "jumlah UMKM per kategori dalam radius 2 km dari koordinat -6.40, 106.80",
+        "SELECT j.nama AS kategori, COUNT(*) AS jumlah FROM umkm.umkm AS u "
+        "JOIN umkm.jenis_umkm AS j ON j.id = u.jenis_umkm_id "
+        "WHERE u.location IS NOT NULL "
+        "AND ST_DWithin(u.location::geography, ST_SetSRID(ST_MakePoint(106.80, -6.40), 4326)::geography, 2000) "
+        "GROUP BY j.nama ORDER BY jumlah DESC",
     ),
 ]
+
+
+def few_shot_examples(catalog: Catalog) -> list[tuple[str, str]]:
+    """Fill the example templates; the category filter needs a FEW_SHOT_CATEGORY in the catalog."""
+    category_id = next(
+        (
+            cid
+            for cid, name in catalog.categories.items()
+            if name.lower() == settings.FEW_SHOT_CATEGORY.lower()
+        ),
+        None,
+    )
+    values = {
+        "subject": "kafe" if category_id is not None else "UMKM",
+        "category_filter": "" if category_id is None else f"AND u.jenis_umkm_id = {category_id} ",
+        "regency_id": settings.STUDY_AREA_REGENCY_ID,
+    }
+    return [(q.format(**values), sql.format(**values)) for q, sql in FEW_SHOT_EXAMPLES]
 
 
 def build_system_prompt(catalog: Catalog, strategy: PromptStrategy) -> str:
@@ -79,6 +102,7 @@ def build_system_prompt(catalog: Catalog, strategy: PromptStrategy) -> str:
         lat=settings.DEFAULT_CENTER_LAT,
         lon=settings.DEFAULT_CENTER_LON,
         radius=settings.DEFAULT_RADIUS_M,
+        max_radius=MAX_RADIUS_METER,
     )
     parts = [
         "Anda adalah penerjemah pertanyaan berbahasa Indonesia menjadi Spatial SQL "
@@ -89,13 +113,8 @@ def build_system_prompt(catalog: Catalog, strategy: PromptStrategy) -> str:
         rules,
     ]
     if strategy == "few_shot":
-        coffee_id = next(
-            (cid for cid, name in catalog.categories.items() if "coffee" in name.lower()),
-            next(iter(catalog.categories), 1),
-        )
         examples = "\n\n".join(
-            f'Pertanyaan: {q}\nJawaban: {{"sql": "{sql.format(coffee_id=coffee_id, regency_id=settings.STUDY_AREA_REGENCY_ID)}"}}'
-            for q, sql in FEW_SHOT_EXAMPLES
+            f'Pertanyaan: {q}\nJawaban: {{"sql": "{sql}"}}' for q, sql in few_shot_examples(catalog)
         )
         parts.append(f"Contoh:\n\n{examples}")
     return "\n\n".join(parts)
