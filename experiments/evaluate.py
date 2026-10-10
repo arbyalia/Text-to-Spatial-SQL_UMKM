@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from app.core.security import execute_ai_sql, validate_sql
-from app.services.search_pipeline import _json_safe
+from app.services.search_pipeline import json_safe
 from experiments.metrics import cochran_q, compare_results, pairwise_mcnemar, percentile
 from experiments.run_benchmark import load_jsonl
 
@@ -27,7 +27,7 @@ async def gold_results(questions: list[dict]) -> dict[str, list[dict]]:
         if not check.valid:
             raise ValueError(f"gold SQL for {q['id']} rejected: {check.reason}")
         rows, _ = await execute_ai_sql(check.sql)
-        gold[q["id"]] = [{k: _json_safe(v) for k, v in r.items()} for r in rows]
+        gold[q["id"]] = [{k: json_safe(v) for k, v in r.items()} for r in rows]
     return gold
 
 
