@@ -14,6 +14,11 @@ from app.services.model_registry import PROVIDER_KEYS, ModelSpec, has_api_key
 
 _JSON_OBJECT = re.compile(r"\{.*\}", re.DOTALL)
 
+# Shared by every model so the comparison stays fair; changes go in docs/protokol_eksperimen.md.
+TEMPERATURE = 0
+MAX_OUTPUT_TOKENS = 1024
+SEED = 42
+
 BASE_URLS = {
     "groq": lambda: settings.GROQ_BASE_URL,
     "openai": lambda: "https://api.openai.com/v1",
@@ -71,7 +76,9 @@ async def _call_openai_compatible(spec: ModelSpec, system: str, user: str) -> LL
     response = await _openai_client(spec.provider).chat.completions.create(
         model=spec.model_id,
         messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-        temperature=0,
+        temperature=TEMPERATURE,
+        max_completion_tokens=MAX_OUTPUT_TOKENS,
+        seed=SEED,
         response_format={"type": "json_object"},
         extra_body=spec.params or None,
     )
@@ -85,7 +92,9 @@ async def _call_openai_compatible(spec: ModelSpec, system: str, user: str) -> LL
 async def _call_gemini(spec: ModelSpec, system: str, user: str) -> LLMResponse:
     config = genai_types.GenerateContentConfig(
         system_instruction=system,
-        temperature=0,
+        temperature=TEMPERATURE,
+        max_output_tokens=MAX_OUTPUT_TOKENS,
+        seed=SEED,
         response_mime_type="application/json",
         thinking_config=genai_types.ThinkingConfig(**spec.params) if spec.params else None,
     )
