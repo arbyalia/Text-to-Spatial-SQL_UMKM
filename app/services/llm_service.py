@@ -12,7 +12,7 @@ from openai import AsyncOpenAI
 from app.core.config import settings
 from app.services.model_registry import ModelSpec, has_api_key
 
-_FENCED_JSON = re.compile(r"\{.*\}", re.DOTALL)
+_JSON_OBJECT = re.compile(r"\{.*\}", re.DOTALL)
 
 BASE_URLS = {
     "groq": lambda: settings.GROQ_BASE_URL,
@@ -41,7 +41,7 @@ def parse_sql_response(content: str | None) -> LLMResponse:
         data = json.loads(content)
     except json.JSONDecodeError:
         strict = False
-        match = _FENCED_JSON.search(content)
+        match = _JSON_OBJECT.search(content)
         try:
             data = json.loads(match.group(0)) if match else None
         except json.JSONDecodeError:
