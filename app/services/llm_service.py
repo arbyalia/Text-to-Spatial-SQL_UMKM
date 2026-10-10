@@ -10,7 +10,7 @@ from google.genai import types as genai_types
 from openai import AsyncOpenAI
 
 from app.core.config import settings
-from app.services.model_registry import ModelSpec, has_api_key
+from app.services.model_registry import PROVIDER_KEYS, ModelSpec, has_api_key
 
 _JSON_OBJECT = re.compile(r"\{.*\}", re.DOTALL)
 
@@ -54,13 +54,11 @@ def parse_sql_response(content: str | None) -> LLMResponse:
 
 @lru_cache
 def _openai_client(provider: str) -> AsyncOpenAI:
-    key = {
-        "groq": settings.GROQ_API_KEY,
-        "openai": settings.OPENAI_API_KEY,
-        "deepseek": settings.DEEPSEEK_API_KEY,
-    }[provider]
     return AsyncOpenAI(
-        api_key=key, base_url=BASE_URLS[provider](), timeout=settings.LLM_TIMEOUT_S, max_retries=0
+        api_key=PROVIDER_KEYS[provider](),
+        base_url=BASE_URLS[provider](),
+        timeout=settings.LLM_TIMEOUT_S,
+        max_retries=0,
     )
 
 

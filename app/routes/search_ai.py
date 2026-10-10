@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/v1", tags=["search"], dependencies=[Depends(requ
 
 
 @router.get("/models", response_model=list[ModelInfo])
-async def list_models():
+async def list_models() -> list[ModelInfo]:
     return [
         ModelInfo(
             key=spec.key,
@@ -32,7 +32,7 @@ async def list_models():
 
 
 @router.post("/search/ai", response_model=SearchAiResponse, dependencies=[Depends(rate_limit)])
-async def search_ai(req: SearchAiRequest):
+async def search_ai(req: SearchAiRequest) -> SearchAiResponse:
     if req.models:
         unknown = [m for m in req.models if m not in MODELS]
         if unknown:

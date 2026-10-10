@@ -1,4 +1,5 @@
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,7 +14,7 @@ logger = logging.getLogger("uvicorn.error")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     role = await verify_executor_role()
     catalog = await load_catalog()
     logger.info(

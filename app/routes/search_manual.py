@@ -9,15 +9,15 @@ router = APIRouter(prefix="/api/v1", tags=["search"], dependencies=[Depends(requ
 
 
 @router.post("/search/manual", response_model=SearchManualResponse)
-async def search_manual(req: SearchManualRequest):
+async def search_manual(req: SearchManualRequest) -> SearchManualResponse:
     params = {
         "lat": req.latitude,
         "lng": req.longitude,
         "radius": req.radius_meter,
     }
-    jenis_filter = ""
+    category_filter = ""
     if req.jenis_umkm_id is not None:
-        jenis_filter = "AND u.jenis_umkm_id = :jenis_umkm_id"
+        category_filter = "AND u.jenis_umkm_id = :jenis_umkm_id"
         params["jenis_umkm_id"] = req.jenis_umkm_id
 
     sql = f"""
@@ -33,7 +33,7 @@ async def search_manual(req: SearchManualRequest):
     FROM umkm.umkm AS u
     WHERE
         u.location IS NOT NULL
-        {jenis_filter}
+        {category_filter}
         AND ST_DWithin(
             u.location::geography,
             ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
