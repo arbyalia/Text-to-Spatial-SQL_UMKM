@@ -79,7 +79,7 @@ if st.button("Cari", type="primary", disabled=not (query and selected)):
                     df = pd.DataFrame(result["data"])
                     if {"latitude", "longitude"} <= set(df.columns) and not df.empty:
                         st.map(df.dropna(subset=["latitude", "longitude"]), size=20)
-                    st.dataframe(df, use_container_width=True)
+                    st.dataframe(df, width="stretch")
                 else:
                     st.error(f"{result['status']}: {result['error_message']}")
                 with st.expander("SQL"):
