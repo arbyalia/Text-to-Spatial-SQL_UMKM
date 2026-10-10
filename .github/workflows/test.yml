@@ -1,0 +1,48 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: pytest tests --ignore=tests/integration
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ta_umkm
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: ta_umkm
+      AI_EXECUTOR_PASSWORD: ci_password
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ta_umkm
+      AI_EXECUTOR_DATABASE_URL: postgresql+asyncpg://readonly_ai_executor:ci_password@localhost:5432/ta_umkm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: sudo apt-get install -y postgresql-client
+      - run: pip install -r requirements.txt
+      - run: ./db/setup.sh
+      - run: pytest tests/integration

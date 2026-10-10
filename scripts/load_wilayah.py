@@ -42,10 +42,13 @@ async def _load_tables(pool) -> None:
         if not sql:
             print(f"  [{label}] No SQL found, skipping")
             continue
-        statements = [s.strip() for s in sql.split(";") if s.strip()]
+        sql = "\n".join(
+            line for line in sql.splitlines() if not line.lstrip().startswith("--")
+        )
+        statements = [s.strip() for s in sql.split(";\n") if s.strip()]
         async with pool.acquire() as conn:
             for stmt in statements:
-                if stmt and not stmt.startswith("--"):
+                if stmt:
                     try:
                         await conn.execute(stmt)
                     except Exception as e:

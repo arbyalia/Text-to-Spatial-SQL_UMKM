@@ -1,10 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
 
+from app.core.auth import require_api_key
 from app.core.database import engine
-from app.schemas.search import SearchManualRequest, SearchManualResponse, UkmResult
+from app.schemas.search import SearchManualRequest, SearchManualResponse, UmkmResult
 
-router = APIRouter(tags=["search"])
+router = APIRouter(prefix="/api/v1", tags=["search"], dependencies=[Depends(require_api_key)])
 
 
 @router.post("/search/manual", response_model=SearchManualResponse)
@@ -44,5 +45,5 @@ async def search_manual(req: SearchManualRequest):
     async with engine.connect() as conn:
         rows = (await conn.execute(text(sql), params)).mappings().all()
 
-    results = [UkmResult(**dict(r)) for r in rows]
+    results = [UmkmResult(**dict(r)) for r in rows]
     return SearchManualResponse(query_used=sql.strip(), count=len(results), results=results)

@@ -1,80 +1,70 @@
-from decimal import Decimal
+import asyncio
+import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.security import execute_ai_sql, validate_sql, validate_user_query
-from app.schemas.search import ModelResult, SearchAiRequest, SearchAiResponse
-from app.services.llm_service import LLMResponse, generate_sql_parallel
+from app.core.auth import require_api_key
+from app.core.config import settings
+from app.core.experiment_log import append_log
+from app.core.rate_limit import rate_limit
+from app.schemas.search import ModelInfo, SearchAiRequest, SearchAiResponse
+from app.services.catalog import catalog
+from app.services.model_registry import MODELS, enabled_models, has_api_key
+from app.services.prompt import build_system_prompt, build_user_message
+from app.services.search_pipeline import run_model
 
-router = APIRouter(tags=["search"])
+router = APIRouter(prefix="/api/v1", tags=["search"], dependencies=[Depends(require_api_key)])
 
 
-def _normalize(row: dict) -> dict:
-    return {
-        k: (float(v) if isinstance(v, Decimal) else v) for k, v in row.items()
-    }
-
-
-async def _build_result(response: LLMResponse, latency_ms: int) -> ModelResult:
-    if response.error:
-        if response.error == "invalid_json":
-            return ModelResult(
-                status="invalid_json",
-                sql=None,
-                latency_ms=latency_ms,
-                error_message=response.error,
-                data=[],
-            )
-        return ModelResult(
-            status="error",
-            sql=None,
-            latency_ms=latency_ms,
-            error_message=response.error,
-            data=[],
+@router.get("/models", response_model=list[ModelInfo])
+async def list_models():
+    return [
+        ModelInfo(
+            key=spec.key,
+            provider=spec.provider,
+            model_id=spec.model_id,
+            params=spec.params,
+            note=spec.note,
+            available=has_api_key(spec),
         )
+        for spec in enabled_models()
+    ]
 
-    valid, status, sanitized_sql = validate_sql(response.sql)
-    if not valid:
-        return ModelResult(
-            status=status,
-            sql=response.sql,
-            latency_ms=latency_ms,
-            error_message=status,
-            data=[],
-        )
 
-    try:
-        rows = [_normalize(r) for r in await execute_ai_sql(sanitized_sql)]
-    except Exception as e:
-        return ModelResult(
-            status="db_execution_error",
-            sql=sanitized_sql,
-            latency_ms=latency_ms,
-            error_message=str(e.__class__.__name__),
-            data=[],
-        )
+@router.post(
+    "/search/ai", response_model=SearchAiResponse, dependencies=[Depends(rate_limit)]
+)
+async def search_ai(req: SearchAiRequest):
+    if req.models:
+        unknown = [m for m in req.models if m not in MODELS]
+        if unknown:
+            raise HTTPException(status_code=422, detail=f"unknown models: {', '.join(unknown)}")
+        specs = [MODELS[m] for m in req.models]
+    else:
+        specs = enabled_models()
+    if (req.latitude is None) != (req.longitude is None):
+        raise HTTPException(status_code=422, detail="latitude and longitude must be sent together")
 
-    return ModelResult(
-        status="success",
-        sql=sanitized_sql,
-        latency_ms=latency_ms,
-        error_message=None,
-        data=rows,
+    strategy = req.prompt_strategy or settings.DEFAULT_PROMPT_STRATEGY
+    system = build_system_prompt(catalog, strategy)
+    user = build_user_message(req.query, req.latitude, req.longitude)
+
+    results = await asyncio.gather(*(run_model(spec, system, user) for spec in specs))
+    response = SearchAiResponse(
+        request_id=uuid.uuid4().hex,
+        query=req.query,
+        prompt_strategy=strategy,
+        results={r.model: r for r in results},
     )
 
-
-@router.post("/search/ai", response_model=SearchAiResponse)
-async def search_ai(req: SearchAiRequest):
-    if not validate_user_query(req.query):
-        return SearchAiResponse(
-            query=req.query,
-            results={},
-        )
-
-    llm_results = await generate_sql_parallel(req.query)
-    results = {
-        name: await _build_result(resp, latency)
-        for name, (resp, latency) in llm_results.items()
-    }
-
-    return SearchAiResponse(query=req.query, results=results)
+    await append_log(
+        {
+            "request_id": response.request_id,
+            "query": req.query,
+            "latitude": req.latitude,
+            "longitude": req.longitude,
+            "prompt_strategy": strategy,
+            "results": [r.model_dump(exclude={"data"}) for r in results],
+        }
+    )
+    return response

@@ -5,93 +5,82 @@ import pandas as pd
 import streamlit as st
 
 BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000")
-
-MODEL_NAMES = ["deepseek", "gpt", "gemini"]
-MODEL_LABELS = {"deepseek": "DeepSeek", "gpt": "GPT", "gemini": "Gemini"}
+HEADERS = {"X-API-Key": os.environ["API_KEY"]} if os.getenv("API_KEY") else {}
 
 st.set_page_config(page_title="Text-to-Spatial-SQL UMKM", layout="wide")
-st.title("Komparasi Model AI: Text-to-Spatial-SQL (Coffee Shop Depok)")
-
-query = st.text_input("Masukkan pertanyaan bahasa natural:", placeholder="cari coffee shop terdekat dari sini radius 500 meter")
+st.title("Text-to-Spatial SQL: Pencarian Lokasi UMKM")
 
 
-def fetch_ai_results(user_query: str) -> dict | None:
+@st.cache_data(ttl=60)
+def fetch_models() -> list[dict]:
+    resp = httpx.get(f"{BACKEND_API_URL}/api/v1/models", headers=HEADERS, timeout=10)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def search(payload: dict) -> dict | None:
     try:
-        with httpx.Client(timeout=120) as client:
-            resp = client.post(
-                f"{BACKEND_API_URL}/search/ai",
-                json={"query": user_query},
-            )
-            resp.raise_for_status()
-            return resp.json()
+        resp = httpx.post(
+            f"{BACKEND_API_URL}/api/v1/search/ai", json=payload, headers=HEADERS, timeout=120
+        )
+        resp.raise_for_status()
+        return resp.json()
     except httpx.HTTPError as e:
         st.error(f"Gagal terhubung ke backend: {e}")
         return None
 
 
-ERROR_MESSAGES = {
-    "model unavailable: no API key": "API key belum diatur",
-}
+try:
+    models = fetch_models()
+except httpx.HTTPError as e:
+    st.error(f"Backend tidak dapat dihubungi di {BACKEND_API_URL}: {e}")
+    st.stop()
 
+with st.sidebar:
+    st.header("Pengaturan")
+    available = [m["key"] for m in models if m["available"]]
+    selected = st.multiselect("Model", [m["key"] for m in models], default=available)
+    strategy = st.radio("Strategi prompt", ["few_shot", "zero_shot"], horizontal=True)
+    use_location = st.checkbox("Kirim lokasi pengguna", value=True)
+    lat = st.number_input("Latitude", value=-6.36043, format="%.6f", disabled=not use_location)
+    lon = st.number_input("Longitude", value=106.83178, format="%.6f", disabled=not use_location)
 
-def summarize(result: dict) -> str:
-    status = result["status"]
-    if status == "success":
-        count = len(result["data"])
-        return f"{count} coffee shop ditemukan ({result['latency_ms']}ms)"
-    return ERROR_MESSAGES.get(result.get("error_message") or "", status)
+query = st.text_input(
+    "Pertanyaan bahasa natural",
+    placeholder="coffee shop rating di atas 4.5 dalam radius 1 km dari sini",
+)
 
-
-if st.button("Cari", type="primary") and query:
-    with st.spinner("Menjalankan 3 model LLM secara paralel..."):
-        response = fetch_ai_results(query)
+if st.button("Cari", type="primary", disabled=not (query and selected)):
+    payload = {"query": query, "models": selected, "prompt_strategy": strategy}
+    if use_location:
+        payload.update(latitude=lat, longitude=lon)
+    with st.spinner(f"Menjalankan {len(selected)} model secara paralel..."):
+        response = search(payload)
 
     if response:
-        results = response.get("results", {})
+        results = response["results"]
+        st.subheader("Latensi per model (ms)")
+        st.bar_chart(
+            pd.DataFrame(
+                {
+                    "LLM": {k: r["latency"]["llm_ms"] for k, r in results.items()},
+                    "Database": {k: r["latency"]["db_ms"] or 0 for k, r in results.items()},
+                }
+            ),
+            stack=True,
+        )
 
-        latencies = {
-            MODEL_LABELS[model]: results[model]["latency_ms"]
-            for model in MODEL_NAMES
-            if model in results
-        }
-        if latencies:
-            st.subheader("Perbandingan Latensi")
-            latency_df = pd.DataFrame(
-                [{"Model": k, "Latency (ms)": v} for k, v in latencies.items()]
-            )
-            st.bar_chart(latency_df.set_index("Model"))
-
-        cols = st.columns(len(MODEL_NAMES))
-        for col, model in zip(cols, MODEL_NAMES):
+        for col, (key, result) in zip(st.columns(len(results)), results.items()):
             with col:
-                if model not in results:
-                    st.subheader(MODEL_LABELS[model])
-                    st.warning("Tidak ada hasil.")
-                    continue
-
-                result = results[model]
-                status = result["status"]
-                st.subheader(f"{MODEL_LABELS[model]} — {summarize(result)}")
-
-                if status == "success":
-                    if result["data"]:
-                        df = pd.DataFrame(result["data"])
-                        st.dataframe(df, use_container_width=True)
-                    else:
-                        st.info("Tidak ada coffee shop ditemukan dalam radius.")
-                    if result["sql"]:
-                        with st.expander("SQL mentah"):
-                            st.code(result["sql"], language="sql")
+                st.subheader(key)
+                st.caption(result["model_id"])
+                if result["status"] == "success":
+                    st.success(f"{result['count']} hasil, {result['latency']['total_ms']} ms")
+                    df = pd.DataFrame(result["data"])
+                    if {"latitude", "longitude"} <= set(df.columns) and not df.empty:
+                        st.map(df.dropna(subset=["latitude", "longitude"]), size=20)
+                    st.dataframe(df, use_container_width=True)
                 else:
-                    st.error(f"Status: {status}")
-                    if result["error_message"]:
-                        st.write(
-                            ERROR_MESSAGES.get(
-                                result["error_message"], result["error_message"]
-                            )
-                        )
-                    with st.expander("Detail"):
-                        st.write("SQL:", result["sql"])
-                        st.write("Data:", result["data"])
-else:
-    st.info("Masukkan query di atas untuk membandingkan hasil Gemini, GPT, dan DeepSeek.")
+                    st.error(f"{result['status']}: {result['error_message']}")
+                with st.expander("SQL"):
+                    st.code(result["sql"] or result["raw_sql"] or "-", language="sql")
