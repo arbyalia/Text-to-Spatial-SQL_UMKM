@@ -33,7 +33,7 @@ def main() -> None:
     parser.add_argument("--models", default="", help="comma separated; default: API's enabled models")
     parser.add_argument("--strategies", default="zero_shot,few_shot")
     parser.add_argument("--repeats", type=int, default=1)
-    parser.add_argument("--delay", type=float, default=2.0, help="seconds between requests")
+    parser.add_argument("--delay", type=float, default=12.0, help="seconds between requests (Groq free tier: 8K TPM)")
     parser.add_argument("--api-url", default=settings.BACKEND_API_URL)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
@@ -49,7 +49,6 @@ def main() -> None:
     done = {
         (r["question_id"], r["model"], r["prompt_strategy"], r["repeat"])
         for r in load_jsonl(args.out)
-        if r.get("status") != "rate_limited"
     }
     jobs = [
         (q, m, s, rep)
@@ -76,13 +75,17 @@ def main() -> None:
                 start = time.perf_counter()
                 resp = client.post("/api/v1/search/ai", json=payload)
                 http_ms = int((time.perf_counter() - start) * 1000)
+                if resp.status_code == 429:
+                    time.sleep(int(resp.headers.get("Retry-After", 60)))
+                    continue
                 resp.raise_for_status()
                 result = resp.json()["results"][model]
                 if "RateLimit" not in (result["error_message"] or ""):
                     break
                 time.sleep(20 * (attempt + 1))
             else:
-                result["status"] = "rate_limited"
+                print(f"{q['id']} {model} {strategy} r{rep}: still rate limited, skipped")
+                continue
 
             out.write(
                 json.dumps(

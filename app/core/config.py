@@ -33,6 +33,7 @@ class Settings(BaseSettings):
 
     # API
     API_KEY: str = ""
+    RATE_LIMIT_PER_MINUTE: int = 30
     EXPERIMENT_LOG_PATH: str = ""
     BACKEND_API_URL: str = "http://localhost:8000"
     APP_ENV: str = "development"

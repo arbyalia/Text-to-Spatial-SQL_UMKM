@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.auth import require_api_key
 from app.core.config import settings
 from app.core.experiment_log import append_log
+from app.core.rate_limit import rate_limit
 from app.schemas.search import ModelInfo, SearchAiRequest, SearchAiResponse
 from app.services.catalog import catalog
 from app.services.model_registry import MODELS, enabled_models, has_api_key
@@ -30,7 +31,9 @@ async def list_models():
     ]
 
 
-@router.post("/search/ai", response_model=SearchAiResponse)
+@router.post(
+    "/search/ai", response_model=SearchAiResponse, dependencies=[Depends(rate_limit)]
+)
 async def search_ai(req: SearchAiRequest):
     if req.models:
         unknown = [m for m in req.models if m not in MODELS]

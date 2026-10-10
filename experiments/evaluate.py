@@ -36,7 +36,7 @@ def score(questions: list[dict], results: list[dict], gold: dict) -> pd.DataFram
     rows = []
     for r in results:
         q = by_id.get(r["question_id"])
-        if q is None or r["status"] == "rate_limited":
+        if q is None:
             continue
         row = {
             "question_id": r["question_id"],

@@ -9,7 +9,8 @@
 - [x] Prompt dinamis dari kategori dan kecamatan di database
 - [x] Log eksperimen, runner, evaluator, dan uji statistik
 - [x] Dataset pilot (20 pertanyaan) dan kasus keamanan (17 kasus)
-- [x] Unit test
+- [x] Unit test, tes integrasi PostGIS, dan CI GitHub Actions
+- [x] Rate limiting dan skrip cek kualitas data
 
 ## Tahap 2: Pilot
 
@@ -18,7 +19,7 @@
 
 ## Tahap 3: Dataset final (setelah data dari dosen tersedia)
 
-- [ ] Periksa kualitas data baru (`district_id`, kategori, koordinat)
+- [ ] Periksa kualitas data baru dengan `python -m scripts.check_data_quality`
 - [ ] Tambah kategori ke `umkm.jenis_umkm` dan muat data
 - [ ] Susun 120–150 pertanyaan dan `gold_sql`, lalu validasi bersama dosen
 

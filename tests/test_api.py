@@ -73,3 +73,16 @@ async def test_api_key_required_when_configured(client, monkeypatch):
             "/api/v1/search/ai", json={"query": "kopi"}, headers={"X-API-Key": "secret"}
         )
     assert resp.status_code == 200
+
+
+async def test_rate_limit(client, monkeypatch):
+    from app.core import rate_limit
+
+    monkeypatch.setattr(rate_limit.settings, "RATE_LIMIT_PER_MINUTE", 2)
+    rate_limit._hits.clear()
+    async with client:
+        codes = [
+            (await client.post("/api/v1/search/ai", json={"query": "kopi"})).status_code
+            for _ in range(3)
+        ]
+    assert codes == [200, 200, 429]
