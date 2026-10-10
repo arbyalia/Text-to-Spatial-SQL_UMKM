@@ -1,11 +1,11 @@
-import os
-
 import httpx
 import pandas as pd
 import streamlit as st
 
-BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000")
-HEADERS = {"X-API-Key": os.environ["API_KEY"]} if os.getenv("API_KEY") else {}
+from app.core.config import settings
+
+BACKEND_API_URL = settings.BACKEND_API_URL
+HEADERS = {"X-API-Key": settings.API_KEY} if settings.API_KEY else {}
 
 st.set_page_config(page_title="Text-to-Spatial-SQL UMKM", layout="wide")
 st.title("Text-to-Spatial SQL: Pencarian Lokasi UMKM")
