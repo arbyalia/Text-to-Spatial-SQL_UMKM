@@ -113,6 +113,7 @@ Setiap perubahan prompt, parameter model, sanitizer, atau metrik dicatat di sini
 5. Contoh few-shot: contoh pertama memakai kategori dari `FEW_SHOT_CATEGORY` (default "Coffee Shop"); jika kategori itu tidak ada di katalog, contoh ditulis tanpa filter kategori dan pertanyaannya memakai "UMKM". Contoh ketiga (`JOIN districts ON district_id`) diganti dengan "jumlah UMKM per kategori dalam radius 2 km dari koordinat -6.40, 106.80" (`JOIN umkm.jenis_umkm`, `GROUP BY` nama kategori, `ST_DWithin` dengan geography). Teks radius maksimum di aturan prompt diformat dari `MAX_RADIUS_METER`. Bagian prompt lain tidak berubah; dengan katalog saat ini, satu-satunya perbedaan teks prompt adalah contoh ketiga.
 6. Parameter model, identik untuk semua model: `max_output_tokens = 1024` dan `seed = 42` (dikirim sebagai `max_completion_tokens` dan `seed` ke provider OpenAI-compatible, `max_output_tokens` dan `seed` ke Gemini), di samping `temperature = 0`.
 7. Ketertelusuran: `PROMPT_VERSION = "v1-2026-10-10"` dicatat di response API, log JSONL, dan output benchmark.
+8. Sanitizer: statement penulisan atau DDL (`INSERT`, `UPDATE`, `DELETE`, `MERGE`, `CREATE`, `DROP`, `ALTER`, `TRUNCATE`, `COPY`, `GRANT`, `SET`) ditolak di mana pun dalam kueri, termasuk di dalam CTE (`WITH d AS (DELETE ... RETURNING id) SELECT ...`). Sebelumnya bentuk ini lolos lapis 2 dan baru diblokir lapis 3. Prompt tidak berubah.
 
 ## Ancaman validitas
 

@@ -33,6 +33,22 @@ ALLOWED_UNTYPED_FUNCTIONS = {
     "geometry",
 }
 
+# Statements that must not appear anywhere, including inside a CTE (WITH d AS (DELETE ...)).
+WRITE_NODES = (
+    exp.Insert,
+    exp.Update,
+    exp.Delete,
+    exp.Merge,
+    exp.Create,
+    exp.Drop,
+    exp.Alter,
+    exp.TruncateTable,
+    exp.Copy,
+    exp.Grant,
+    exp.Set,
+    exp.Command,
+)
+
 MAX_QUERY_LENGTH = 500
 MAX_RADIUS_METER = 5000
 DEFAULT_LIMIT = 100
@@ -211,7 +227,7 @@ def validate_sql(sql: str | None) -> SqlValidation:
 
     expression = expressions[0]
     branches = _select_branches(expression)
-    if not all(isinstance(b, exp.Select) for b in branches):
+    if not all(isinstance(b, exp.Select) for b in branches) or expression.find(*WRITE_NODES):
         return SqlValidation(False, "blocked_by_sanitizer", None, "only SELECT is allowed")
     if any(b.args.get("into") is not None or b.args.get("locks") for b in branches):
         return SqlValidation(

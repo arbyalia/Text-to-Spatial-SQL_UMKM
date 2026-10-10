@@ -67,6 +67,15 @@ def test_legitimate_queries_pass(sql):
         ("SELECT pg_read_file('/etc/passwd') FROM umkm.umkm", "function not allowed"),
         ("SELECT set_config('role', 'postgres', false) FROM umkm.umkm", "function not allowed"),
         ("SELECT dblink('host=x', 'select 1') FROM umkm.umkm", "function not allowed"),
+        ("WITH d AS (DELETE FROM umkm.umkm RETURNING id) SELECT id FROM d", "only SELECT"),
+        (
+            "WITH d AS (UPDATE umkm.umkm SET rating = 5 RETURNING id) SELECT id FROM d",
+            "only SELECT",
+        ),
+        (
+            "WITH d AS (INSERT INTO umkm.umkm (nama) VALUES ('x') RETURNING id) SELECT id FROM d",
+            "only SELECT",
+        ),
         ("SELECT * INTO umkm.copy FROM umkm.umkm", "SELECT INTO"),
         ("SELECT * FROM umkm.umkm FOR UPDATE", "locking"),
         ("SELECT 1", "no table"),
