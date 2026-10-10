@@ -9,6 +9,6 @@ cd "$(dirname "$0")/.."
 
 psql -v ON_ERROR_STOP=1 -f db/01_init.sql
 DATABASE_URL="postgresql://${PGUSER:-postgres}${PGPASSWORD:+:$PGPASSWORD}@${PGHOST:-localhost}:${PGPORT:-5432}/${PGDATABASE}" \
-    python scripts/load_wilayah.py
+    python -m scripts.load_wilayah
 psql -v ON_ERROR_STOP=1 -f backup_umkm.sql
 psql -v ON_ERROR_STOP=1 -v ai_password="'${AI_EXECUTOR_PASSWORD}'" -f db/02_readonly_role.sql

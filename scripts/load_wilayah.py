@@ -1,32 +1,24 @@
-#!/usr/bin/env python3
-"""Load Indonesia administrative region data into PostgreSQL."""
+"""Load Indonesia administrative region data into PostgreSQL.
+
+Usage (from the repository root): python -m scripts.load_wilayah
+"""
 
 import asyncio
-import os
 import re
-import sys
 from pathlib import Path
 
 import asyncpg
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from app.core.config import settings
 
-SQL_FILES = [
-    ("provinces", "scripts/provinces.sql"),
-    ("regencies", "scripts/regencies.sql"),
-    ("districts", "scripts/districts.sql"),
-    ("villages", "scripts/villages.sql"),
-]
-
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://postgres@localhost:5432/ta_umkm",
-)
+SQL_DIR = Path(__file__).parent
+# FK order: each table references the previous one.
+TABLES = ["provinces", "regencies", "districts", "villages"]
 
 
-def _extract_up_section(filepath: str) -> str:
+def _extract_up_section(path: Path) -> str:
     """Extract SQL between +migrate Up and +migrate Down markers."""
-    content = Path(filepath).read_text(encoding="utf-8")
+    content = path.read_text(encoding="utf-8")
     match = re.search(
         r"-- \+migrate Up\s*\n(.*?)(?=-- \+migrate Down|\Z)",
         content,
@@ -35,10 +27,9 @@ def _extract_up_section(filepath: str) -> str:
     return match.group(1).strip() if match else content.strip()
 
 
-async def _load_tables(pool) -> None:
-    """Load four region tables in FK order."""
-    for label, filepath in SQL_FILES:
-        sql = _extract_up_section(filepath)
+async def _load_tables(pool: asyncpg.Pool) -> None:
+    for label in TABLES:
+        sql = _extract_up_section(SQL_DIR / f"{label}.sql")
         if not sql:
             print(f"  [{label}] No SQL found, skipping")
             continue
@@ -46,21 +37,16 @@ async def _load_tables(pool) -> None:
         statements = [s.strip() for s in sql.split(";\n") if s.strip()]
         async with pool.acquire() as conn:
             for stmt in statements:
-                if stmt:
-                    try:
-                        await conn.execute(stmt)
-                    except Exception as e:
-                        if "duplicate key" in str(e).lower():
-                            print(f"  [{label}] Skipping duplicate: {e}")
-                        else:
-                            raise
+                try:
+                    await conn.execute(stmt)
+                except asyncpg.UniqueViolationError as e:
+                    print(f"  [{label}] Skipping duplicate: {e}")
 
 
-async def _add_location_columns(pool) -> None:
+async def _add_location_columns(pool: asyncpg.Pool) -> None:
     """Add geometry column and backfill from lat/lng for each table."""
-    tables = ["provinces", "regencies", "districts", "villages"]
     async with pool.acquire() as conn:
-        for table in tables:
+        for table in TABLES:
             col_exists = await conn.fetchval(
                 """
                 SELECT 1 FROM information_schema.columns
@@ -86,10 +72,10 @@ async def _add_location_columns(pool) -> None:
             print(f"  [{table}] Backfilled location: {rows} rows")
 
 
-async def _verify(pool) -> None:
+async def _verify(pool: asyncpg.Pool) -> None:
     """Print row counts and location coverage."""
     async with pool.acquire() as conn:
-        for table in ["provinces", "regencies", "districts", "villages"]:
+        for table in TABLES:
             total = await conn.fetchval(f"SELECT COUNT(*) FROM public.{table}")
             with_geom = await conn.fetchval(
                 f"SELECT COUNT(*) FROM public.{table} WHERE location IS NOT NULL"
@@ -97,9 +83,9 @@ async def _verify(pool) -> None:
             print(f"  {table}: {total} rows, {with_geom} with location")
 
 
-async def main():
+async def main() -> None:
     pool = await asyncpg.create_pool(
-        DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://"),
+        settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://"),
         min_size=1,
         max_size=2,
     )
