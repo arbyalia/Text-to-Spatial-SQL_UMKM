@@ -10,7 +10,7 @@ from app.core.rate_limit import rate_limit
 from app.schemas.search import ModelInfo, SearchAiRequest, SearchAiResponse
 from app.services.catalog import catalog
 from app.services.model_registry import MODELS, enabled_models, has_api_key
-from app.services.prompt import build_system_prompt, build_user_message
+from app.services.prompt import PROMPT_VERSION, build_system_prompt, build_user_message
 from app.services.search_pipeline import run_model
 
 router = APIRouter(prefix="/api/v1", tags=["search"], dependencies=[Depends(require_api_key)])
@@ -53,6 +53,7 @@ async def search_ai(req: SearchAiRequest) -> SearchAiResponse:
         query=req.query,
         prompt_strategy=strategy,
         results={r.model: r for r in results},
+        prompt_version=PROMPT_VERSION,
     )
 
     await append_log(
@@ -62,6 +63,7 @@ async def search_ai(req: SearchAiRequest) -> SearchAiResponse:
             "latitude": req.latitude,
             "longitude": req.longitude,
             "prompt_strategy": strategy,
+            "prompt_version": PROMPT_VERSION,
             "results": [r.model_dump(exclude={"data"}) for r in results],
         }
     )

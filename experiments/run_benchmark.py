@@ -91,7 +91,8 @@ def main() -> None:
                     time.sleep(int(resp.headers.get("Retry-After", 60)))
                     continue
                 resp.raise_for_status()
-                result = resp.json()["results"][model]
+                body = resp.json()
+                result = body["results"][model]
                 if "RateLimit" not in (result["error_message"] or ""):
                     break
                 time.sleep(20 * (attempt + 1))
@@ -108,6 +109,7 @@ def main() -> None:
                         "model": model,
                         "model_id": result["model_id"],
                         "prompt_strategy": strategy,
+                        "prompt_version": body["prompt_version"],
                         "repeat": rep,
                         "http_ms": http_ms,
                         **{k: v for k, v in result.items() if k not in ("model", "model_id")},

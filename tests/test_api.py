@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -5,6 +7,7 @@ from app.main import app
 from app.routes import search_ai
 from app.services import search_pipeline
 from app.services.llm_service import LLMResponse
+from app.services.prompt import PROMPT_VERSION
 
 SQL = "SELECT u.id, u.nama FROM umkm.umkm AS u LIMIT 5"
 
@@ -47,6 +50,15 @@ async def test_single_model_and_strategy(client):
             json={"query": "kopi", "models": ["qwen3.8-27b"], "prompt_strategy": "zero_shot"},
         )
     assert list(resp.json()["results"]) == ["qwen3.8-27b"]
+
+
+async def test_prompt_version_in_response_and_log(client, monkeypatch, tmp_path):
+    log = tmp_path / "requests.jsonl"
+    monkeypatch.setattr(search_ai.settings, "EXPERIMENT_LOG_PATH", str(log))
+    async with client:
+        resp = await client.post("/api/v1/search/ai", json={"query": "kopi"})
+    assert resp.json()["prompt_version"] == PROMPT_VERSION
+    assert json.loads(log.read_text())["prompt_version"] == PROMPT_VERSION
 
 
 @pytest.mark.parametrize(

@@ -74,6 +74,7 @@ class SearchAiResponse(BaseModel):
     query: str
     prompt_strategy: str
     results: dict[str, ModelResult]
+    prompt_version: str
 
 
 class ModelInfo(BaseModel):
