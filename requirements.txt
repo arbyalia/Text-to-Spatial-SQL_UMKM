@@ -5,7 +5,6 @@ uvicorn[standard]==0.54.0
 # Database
 sqlalchemy[asyncio]==2.1.4
 asyncpg==0.32.0
-geoalchemy2==0.20.0
 
 # Validation & Config
 pydantic==2.14.0
