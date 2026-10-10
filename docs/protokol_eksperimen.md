@@ -104,6 +104,10 @@ Cek ulang batas di https://console.groq.com/settings/limits sebelum eksperimen f
 
 Setiap perubahan prompt, parameter model, sanitizer, atau metrik dicatat di sini. `PROMPT_VERSION` (di `app/services/prompt.py`) ikut tercatat di response `/api/v1/search/ai`, log JSONL, dan setiap baris output `run_benchmark.py`, sehingga hasil dari versi berbeda tidak tercampur.
 
+### 10 Oktober 2026, prompt `v2-2026-10-10`
+
+1. Contoh few-shot pertama: kata "kafe" di pertanyaan diganti nama kategori `FEW_SHOT_CATEGORY` dari katalog dalam huruf kecil (saat ini "coffee shop"), atau "UMKM" jika kategori itu tidak ada. SQL contoh dan bagian prompt lain tidak berubah. Hasil eksperimen dengan prompt `v1-2026-10-10` tidak boleh digabung dengan hasil `v2-2026-10-10`.
+
 ### 10 Oktober 2026, prompt `v1-2026-10-10`
 
 1. Sanitizer, batas radius: `ST_DWithin` wajib memakai geography pada dua argumen pertamanya dan radiusnya harus konstanta numerik ≤ 5000 m (aritmetika antar-konstanta boleh). Batas yang sama berlaku untuk perbandingan `ST_Distance` dengan konstanta (`<`, `<=`, `BETWEEN`) di `WHERE`, `HAVING`, dan `JOIN ... ON`, yang juga wajib memakai geography.

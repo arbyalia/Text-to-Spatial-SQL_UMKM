@@ -1,3 +1,4 @@
+from app.core.config import settings
 from app.core.security import MAX_RADIUS_METER, validate_sql
 from app.services.catalog import Catalog
 from app.services.prompt import build_system_prompt, build_user_message, few_shot_examples
@@ -29,7 +30,13 @@ def test_few_shot_examples_pass_sanitizer():
 
 def test_first_example_uses_few_shot_category():
     question, sql = few_shot_examples(CATALOG)[0]
-    assert question.startswith("kafe ") and "u.jenis_umkm_id = 7 " in sql
+    assert question.startswith("coffee shop dalam radius") and "u.jenis_umkm_id = 7 " in sql
+
+
+def test_first_example_names_configured_category(monkeypatch):
+    monkeypatch.setattr(settings, "FEW_SHOT_CATEGORY", "laundry")
+    question, sql = few_shot_examples(CATALOG)[0]
+    assert question.startswith("laundry dalam radius") and "u.jenis_umkm_id = 1 " in sql
 
 
 def test_first_example_without_category():

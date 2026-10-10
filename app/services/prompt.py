@@ -6,7 +6,7 @@ from app.services.catalog import Catalog
 
 PromptStrategy = Literal["zero_shot", "few_shot"]
 
-PROMPT_VERSION = "v1-2026-10-10"
+PROMPT_VERSION = "v2-2026-10-10"
 
 SCHEMA = """umkm.umkm (data UMKM):
 - id: integer, primary key
@@ -78,16 +78,16 @@ FEW_SHOT_EXAMPLES = [
 
 def few_shot_examples(catalog: Catalog) -> list[tuple[str, str]]:
     """Fill the example templates; the category filter needs a FEW_SHOT_CATEGORY in the catalog."""
-    category_id = next(
+    category_id, category = next(
         (
-            cid
+            (cid, name)
             for cid, name in catalog.categories.items()
             if name.lower() == settings.FEW_SHOT_CATEGORY.lower()
         ),
-        None,
+        (None, None),
     )
     values = {
-        "subject": "kafe" if category_id is not None else "UMKM",
+        "subject": "UMKM" if category is None else category.lower(),
         "category_filter": "" if category_id is None else f"AND u.jenis_umkm_id = {category_id} ",
         "regency_id": settings.STUDY_AREA_REGENCY_ID,
     }
