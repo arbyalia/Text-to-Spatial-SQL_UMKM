@@ -44,6 +44,11 @@ def main() -> None:
     parser.add_argument("--api-url", default=settings.BACKEND_API_URL)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
+    if args.repeats % 2 == 0:
+        print(
+            f"warning: --repeats {args.repeats} is even; majority vote can tie. "
+            "Use an odd number (see docs/protokol_eksperimen.md)."
+        )
 
     headers = {"X-API-Key": settings.API_KEY} if settings.API_KEY else {}
     client = httpx.Client(base_url=args.api_url, headers=headers, timeout=120)

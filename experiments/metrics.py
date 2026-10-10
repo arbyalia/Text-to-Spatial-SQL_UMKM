@@ -1,11 +1,12 @@
 import math
 from collections import Counter
+from decimal import Decimal
 from itertools import combinations
 
 
 def _norm(value):
-    if isinstance(value, float):
-        return round(value, 2)
+    if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
+        return round(float(value), 2)
     if isinstance(value, str):
         return value.strip().lower()
     return value

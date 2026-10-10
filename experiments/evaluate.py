@@ -92,7 +92,7 @@ def summarize(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def significance(df: pd.DataFrame) -> dict:
-    """Majority-vote correctness per question.
+    """Majority-vote correctness per question (correct in more than half of the repeats).
 
     Models are compared per strategy, strategies per model.
     """
@@ -101,7 +101,7 @@ def significance(df: pd.DataFrame) -> dict:
         votes = (
             g.groupby(["question_id", "model"])["execution_match"]
             .mean()
-            .ge(0.5)
+            .gt(0.5)
             .astype(int)
             .unstack()
         ).dropna()
@@ -119,7 +119,7 @@ def significance(df: pd.DataFrame) -> dict:
             votes = (
                 g.groupby(["question_id", "prompt_strategy"])["execution_match"]
                 .mean()
-                .ge(0.5)
+                .gt(0.5)
                 .astype(int)
                 .unstack()
             ).dropna()

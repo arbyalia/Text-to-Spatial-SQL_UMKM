@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from experiments.metrics import cochran_q, compare_results, mcnemar_exact
 
 GOLD = [{"id": 1, "jarak_meter": 10.0}, {"id": 2, "jarak_meter": 20.0}]
@@ -19,6 +21,15 @@ def test_row_match_without_id():
     assert compare_results([{"total": 19}], [{"jumlah": 19}])["execution_match"]
     assert compare_results([{"avg": 4.7412}], [{"rata": 4.74}])["execution_match"]
     assert not compare_results([{"total": 18}], [{"jumlah": 19}])["execution_match"]
+
+
+def test_numbers_normalized_across_types():
+    assert compare_results([{"total": 19}], [{"jumlah": 19.0}])["execution_match"]
+    assert compare_results([{"avg": Decimal("4.741")}], [{"rata": 4.74}])["execution_match"]
+    assert compare_results([{"n": 3, "r": Decimal("4.50")}], [{"r": 4.5, "n": 3.0}])[
+        "execution_match"
+    ]
+    assert not compare_results([{"flag": True}], [{"flag": 1}])["execution_match"]
 
 
 def test_empty_results():

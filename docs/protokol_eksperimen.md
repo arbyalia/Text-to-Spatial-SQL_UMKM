@@ -63,7 +63,7 @@ Aturan penyusunan:
 
 | Metrik | Definisi |
 |---|---|
-| Execution Accuracy (EX) | Proporsi percobaan yang hasil eksekusinya sama dengan hasil `gold_sql`. Jika kedua hasil punya kolom `id`, dibandingkan himpunan `id` (kolom tambahan diabaikan). Jika tidak, dibandingkan multiset nilai baris (nama kolom diabaikan, angka dibulatkan 2 desimal). Untuk `order_matters: true`, urutan juga harus sama |
+| Execution Accuracy (EX) | Proporsi percobaan yang hasil eksekusinya sama dengan hasil `gold_sql`. Jika kedua hasil punya kolom `id`, dibandingkan himpunan `id` (kolom tambahan diabaikan). Jika tidak, dibandingkan multiset nilai baris (nama kolom diabaikan; semua angka, baik integer, float, maupun Decimal, diubah ke float dan dibulatkan 2 desimal sehingga 19 dan 19.0 dianggap sama). Untuk `order_matters: true`, urutan juga harus sama |
 | Precision/Recall/F1 | Kecocokan sebagian antara hasil model dan ground truth |
 | Valid SQL Rate | Proporsi SQL yang lolos sanitizer (status `success` atau `db_execution_error`) |
 | JSON strict rate | Proporsi output yang langsung berupa JSON valid tanpa perbaikan |
@@ -75,7 +75,8 @@ Uji statistik (dihitung otomatis oleh `experiments/evaluate.py`):
 
 - Antarmodel, per strategi: Cochran's Q, dilanjutkan McNemar exact berpasangan.
 - Antarstrategi, per model: McNemar exact.
-- Correctness per pertanyaan ditentukan dengan suara mayoritas dari beberapa ulangan.
+- Correctness per pertanyaan ditentukan dengan suara mayoritas dari beberapa ulangan: pertanyaan dianggap benar jika benar pada lebih dari separuh ulangan (> 0,5).
+- Jumlah ulangan harus ganjil (1, 3, 5, ...) supaya suara mayoritas tidak pernah seri. `run_benchmark.py` memberi peringatan jika `--repeats` genap.
 
 ## Prosedur
 
