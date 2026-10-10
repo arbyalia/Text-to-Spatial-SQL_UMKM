@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Load Indonesia administrative region data into PostgreSQL."""
 
-import re
-import os
-import sys
 import asyncio
+import os
+import re
+import sys
 from pathlib import Path
 
 import asyncpg
@@ -42,9 +42,7 @@ async def _load_tables(pool) -> None:
         if not sql:
             print(f"  [{label}] No SQL found, skipping")
             continue
-        sql = "\n".join(
-            line for line in sql.splitlines() if not line.lstrip().startswith("--")
-        )
+        sql = "\n".join(line for line in sql.splitlines() if not line.lstrip().startswith("--"))
         statements = [s.strip() for s in sql.split(";\n") if s.strip()]
         async with pool.acquire() as conn:
             for stmt in statements:
@@ -74,8 +72,7 @@ async def _add_location_columns(pool) -> None:
             )
             if not col_exists:
                 await conn.execute(
-                    f"ALTER TABLE public.{table} "
-                    "ADD COLUMN location geometry(Point,4326)"
+                    f"ALTER TABLE public.{table} ADD COLUMN location geometry(Point,4326)"
                 )
 
             result = await conn.execute(

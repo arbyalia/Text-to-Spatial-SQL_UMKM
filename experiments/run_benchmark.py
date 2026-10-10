@@ -12,7 +12,7 @@ import argparse
 import json
 import random
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -30,10 +30,17 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--models", default="", help="comma separated; default: API's enabled models")
+    parser.add_argument(
+        "--models", default="", help="comma separated; default: API's enabled models"
+    )
     parser.add_argument("--strategies", default="zero_shot,few_shot")
     parser.add_argument("--repeats", type=int, default=1)
-    parser.add_argument("--delay", type=float, default=12.0, help="seconds between requests (Groq free tier: 8K TPM)")
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=12.0,
+        help="seconds between requests (Groq free tier: 8K TPM)",
+    )
     parser.add_argument("--api-url", default=settings.BACKEND_API_URL)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
@@ -90,7 +97,7 @@ def main() -> None:
             out.write(
                 json.dumps(
                     {
-                        "run_at": datetime.now(timezone.utc).isoformat(),
+                        "run_at": datetime.now(UTC).isoformat(),
                         "question_id": q["id"],
                         "category": q.get("category"),
                         "model": model,

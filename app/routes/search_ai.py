@@ -31,9 +31,7 @@ async def list_models():
     ]
 
 
-@router.post(
-    "/search/ai", response_model=SearchAiResponse, dependencies=[Depends(rate_limit)]
-)
+@router.post("/search/ai", response_model=SearchAiResponse, dependencies=[Depends(rate_limit)])
 async def search_ai(req: SearchAiRequest):
     if req.models:
         unknown = [m for m in req.models if m not in MODELS]

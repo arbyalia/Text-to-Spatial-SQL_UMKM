@@ -12,7 +12,7 @@ def _norm(value):
 
 
 def _row_key(row: dict) -> tuple:
-    return tuple(sorted((repr(_norm(v)) for v in row.values())))
+    return tuple(sorted(repr(_norm(v)) for v in row.values()))
 
 
 def compare_results(pred: list[dict], gold: list[dict], order_matters: bool = False) -> dict:
@@ -95,8 +95,8 @@ def cochran_q(table: list[list[int]]) -> dict:
 
 def mcnemar_exact(a: list[int], b: list[int]) -> dict:
     """Exact two-sided McNemar test on paired binary outcomes."""
-    only_a = sum(1 for x, y in zip(a, b) if x and not y)
-    only_b = sum(1 for x, y in zip(a, b) if y and not x)
+    only_a = sum(1 for x, y in zip(a, b, strict=True) if x and not y)
+    only_b = sum(1 for x, y in zip(a, b, strict=True) if y and not x)
     n = only_a + only_b
     if n == 0:
         return {"only_a": 0, "only_b": 0, "p_value": 1.0}

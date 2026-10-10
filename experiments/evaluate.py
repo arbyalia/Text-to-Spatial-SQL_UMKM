@@ -72,7 +72,9 @@ def summarize(df: pd.DataFrame) -> pd.DataFrame:
         return pd.Series(
             {
                 "attempts": len(g),
-                "execution_accuracy": g["execution_match"].mean() if "execution_match" in g else None,
+                "execution_accuracy": g["execution_match"].mean()
+                if "execution_match" in g
+                else None,
                 "mean_f1": g["f1"].mean() if "f1" in g else None,
                 "valid_sql_rate": g["valid_sql"].mean(),
                 "json_strict_rate": g["json_strict"].mean(),
@@ -90,11 +92,18 @@ def summarize(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def significance(df: pd.DataFrame) -> dict:
-    """Majority-vote correctness per question; models compared per strategy, strategies per model."""
+    """Majority-vote correctness per question.
+
+    Models are compared per strategy, strategies per model.
+    """
     out = {}
     for strategy, g in df.groupby("prompt_strategy"):
         votes = (
-            g.groupby(["question_id", "model"])["execution_match"].mean().ge(0.5).astype(int).unstack()
+            g.groupby(["question_id", "model"])["execution_match"]
+            .mean()
+            .ge(0.5)
+            .astype(int)
+            .unstack()
         ).dropna()
         if votes.shape[1] < 2:
             continue
@@ -109,7 +118,10 @@ def significance(df: pd.DataFrame) -> dict:
         for model, g in df.groupby("model"):
             votes = (
                 g.groupby(["question_id", "prompt_strategy"])["execution_match"]
-                .mean().ge(0.5).astype(int).unstack()
+                .mean()
+                .ge(0.5)
+                .astype(int)
+                .unstack()
             ).dropna()
             if votes.shape[1] == 2:
                 out["strategy_per_model"][model] = pairwise_mcnemar(

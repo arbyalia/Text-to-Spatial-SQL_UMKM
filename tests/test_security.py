@@ -6,7 +6,8 @@ GROUND_TRUTH = (
     "SELECT u.id, u.nama, ROUND(ST_Distance(u.location::geography, "
     "ST_SetSRID(ST_MakePoint(106.83178, -6.36043), 4326)::geography)::numeric, 2) AS jarak_meter "
     "FROM umkm.umkm AS u WHERE u.location IS NOT NULL AND u.jenis_umkm_id = 1 "
-    "AND ST_DWithin(u.location::geography, ST_SetSRID(ST_MakePoint(106.83178, -6.36043), 4326)::geography, 500) "
+    "AND ST_DWithin(u.location::geography, "
+    "ST_SetSRID(ST_MakePoint(106.83178, -6.36043), 4326)::geography, 500) "
     "ORDER BY jarak_meter ASC"
 )
 
@@ -21,13 +22,17 @@ def test_ground_truth_passes_and_gets_limit():
     "sql",
     [
         GROUND_TRUTH,
-        "WITH ref AS (SELECT d.location AS c FROM public.districts AS d WHERE d.name ILIKE '%beji%') "
-        "SELECT u.id FROM umkm.umkm AS u, ref WHERE ST_DWithin(u.location::geography, ref.c::geography, 500)",
+        "WITH ref AS (SELECT d.location AS c FROM public.districts AS d "
+        "WHERE d.name ILIKE '%beji%') "
+        "SELECT u.id FROM umkm.umkm AS u, ref "
+        "WHERE ST_DWithin(u.location::geography, ref.c::geography, 500)",
         "SELECT u.id FROM umkm.umkm AS u CROSS JOIN LATERAL (SELECT d.location AS center "
         "FROM public.districts AS d WHERE d.regency_id = 3276 LIMIT 1) AS ref "
         "ORDER BY u.location <-> ref.center LIMIT 3",
-        "SELECT d.name, COUNT(*) FROM umkm.umkm AS u JOIN public.districts AS d ON d.id = u.district_id GROUP BY d.name",
-        "SELECT u.id FROM umkm.umkm u WHERE ST_DWithin(u.location::geography, u.location::geography, 2 * 1000)",
+        "SELECT d.name, COUNT(*) FROM umkm.umkm AS u "
+        "JOIN public.districts AS d ON d.id = u.district_id GROUP BY d.name",
+        "SELECT u.id FROM umkm.umkm u "
+        "WHERE ST_DWithin(u.location::geography, u.location::geography, 2 * 1000)",
     ],
 )
 def test_legitimate_queries_pass(sql):
@@ -51,11 +56,13 @@ def test_legitimate_queries_pass(sql):
         ("SELECT * FROM umkm.umkm FOR UPDATE", "locking"),
         ("SELECT 1", "no table"),
         (
-            "SELECT u.id FROM umkm.umkm u WHERE ST_DWithin(u.location::geography, u.location::geography, 50000)",
+            "SELECT u.id FROM umkm.umkm u "
+            "WHERE ST_DWithin(u.location::geography, u.location::geography, 50000)",
             "radius",
         ),
         (
-            "SELECT u.id FROM umkm.umkm u WHERE ST_DWithin(u.location::geography, u.location::geography, 10 * 1000)",
+            "SELECT u.id FROM umkm.umkm u "
+            "WHERE ST_DWithin(u.location::geography, u.location::geography, 10 * 1000)",
             "radius",
         ),
         ("SELECT u.id FROM umkm.umkm u UNION SELECT id FROM public.districts", "only SELECT"),

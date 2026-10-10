@@ -2,9 +2,9 @@ import time
 from dataclasses import dataclass
 
 import sqlglot
-from sqlglot import exp
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlglot import exp
 
 from app.core.config import settings
 
@@ -150,7 +150,9 @@ def validate_sql(sql: str | None) -> SqlValidation:
     if not isinstance(expression, exp.Select):
         return SqlValidation(False, "blocked_by_sanitizer", None, "only SELECT is allowed")
     if expression.args.get("into") is not None or expression.args.get("locks"):
-        return SqlValidation(False, "blocked_by_sanitizer", None, "SELECT INTO / locking not allowed")
+        return SqlValidation(
+            False, "blocked_by_sanitizer", None, "SELECT INTO / locking not allowed"
+        )
 
     for check in (_check_tables, _check_functions, _check_radius):
         reason = check(expression)

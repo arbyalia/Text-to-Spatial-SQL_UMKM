@@ -25,6 +25,7 @@ sqlglot==30.22.0
 streamlit==1.65.0
 pandas==3.0.6
 
-# Testing
+# Testing & lint
 pytest==9.1.1
 pytest-asyncio==1.4.0
+ruff==0.17.0

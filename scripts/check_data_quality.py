@@ -31,10 +31,12 @@ CHECKS = {
         WHERE d.regency_id IS DISTINCT FROM :rid
     """,
     "far_from_study_area": """
-        SELECT u.id, u.nama, ROUND(MIN(ST_Distance(u.location::geography, d.location::geography))) AS meter
+        SELECT u.id, u.nama,
+               ROUND(MIN(ST_Distance(u.location::geography, d.location::geography))) AS meter
         FROM umkm.umkm u CROSS JOIN public.districts d
         WHERE d.regency_id = :rid AND u.location IS NOT NULL
-        GROUP BY u.id, u.nama HAVING MIN(ST_Distance(u.location::geography, d.location::geography)) > 8000
+        GROUP BY u.id, u.nama
+        HAVING MIN(ST_Distance(u.location::geography, d.location::geography)) > 8000
     """,
     "duplicate_name_and_location": """
         SELECT MIN(id) AS id, nama, COUNT(*) AS n FROM umkm.umkm
@@ -73,7 +75,8 @@ async def main() -> None:
             await conn.execute(
                 text(
                     "SELECT j.nama, COUNT(u.id) FROM umkm.jenis_umkm j "
-                    "LEFT JOIN umkm.umkm u ON u.jenis_umkm_id = j.id GROUP BY j.nama ORDER BY 2 DESC"
+                    "LEFT JOIN umkm.umkm u ON u.jenis_umkm_id = j.id "
+                    "GROUP BY j.nama ORDER BY 2 DESC"
                 )
             )
         ).all()
@@ -98,16 +101,21 @@ async def main() -> None:
         if match and not _norm(match.group(1)).startswith(_norm(row.coded)):
             address_mismatch.append((row.id, row.coded, match.group(1).strip()))
 
-    print(f"\n[{'OK' if not address_mismatch else 'CHECK'}] district_id differs from kecamatan in address: "
-          f"{len(address_mismatch)}")
+    print(
+        f"\n[{'OK' if not address_mismatch else 'CHECK'}] "
+        f"district_id differs from kecamatan in address: {len(address_mismatch)}"
+    )
     pairs: dict[tuple[str, str], int] = {}
     for _, coded, written in address_mismatch:
         key = (coded, written.upper())
         pairs[key] = pairs.get(key, 0) + 1
     for (coded, written), n in sorted(pairs.items(), key=lambda kv: -kv[1]):
         print(f"    coded {coded!r} but address says {written!r}: {n}")
-    print(f"\n[INFO] district_id differs from nearest district centroid: {nearest_mismatch} of {len(rows)} "
-          "(centroids are approximate; read together with the address check)")
+    print(
+        f"\n[INFO] district_id differs from nearest district centroid: "
+        f"{nearest_mismatch} of {len(rows)} "
+        "(centroids are approximate; read together with the address check)"
+    )
 
 
 if __name__ == "__main__":

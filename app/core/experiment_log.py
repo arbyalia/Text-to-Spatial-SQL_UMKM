@@ -1,6 +1,6 @@
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.core.config import settings
@@ -13,7 +13,7 @@ async def append_log(record: dict) -> None:
     if not settings.EXPERIMENT_LOG_PATH:
         return
     path = Path(settings.EXPERIMENT_LOG_PATH)
-    record = {"logged_at": datetime.now(timezone.utc).isoformat(), **record}
+    record = {"logged_at": datetime.now(UTC).isoformat(), **record}
     line = json.dumps(record, ensure_ascii=False, default=str)
     async with _lock:
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -112,7 +112,7 @@ async def generate_sql(spec: ModelSpec, system: str, user: str) -> LLMResponse:
     start = time.perf_counter()
     try:
         result = await call(spec, system, user)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         result = LLMResponse(error="timeout")
     except Exception as e:
         result = LLMResponse(error=f"{e.__class__.__name__}: {str(e)[:200]}")

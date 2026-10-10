@@ -70,7 +70,7 @@ if st.button("Cari", type="primary", disabled=not (query and selected)):
             stack=True,
         )
 
-        for col, (key, result) in zip(st.columns(len(results)), results.items()):
+        for col, (key, result) in zip(st.columns(len(results)), results.items(), strict=True):
             with col:
                 st.subheader(key)
                 st.caption(result["model_id"])

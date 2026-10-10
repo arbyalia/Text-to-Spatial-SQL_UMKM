@@ -94,7 +94,7 @@ def build_system_prompt(catalog: Catalog, strategy: PromptStrategy) -> str:
             next(iter(catalog.categories), 1),
         )
         examples = "\n\n".join(
-            f"Pertanyaan: {q}\nJawaban: {{\"sql\": \"{sql.format(coffee_id=coffee_id, regency_id=settings.STUDY_AREA_REGENCY_ID)}\"}}"
+            f'Pertanyaan: {q}\nJawaban: {{"sql": "{sql.format(coffee_id=coffee_id, regency_id=settings.STUDY_AREA_REGENCY_ID)}"}}'
             for q, sql in FEW_SHOT_EXAMPLES
         )
         parts.append(f"Contoh:\n\n{examples}")
