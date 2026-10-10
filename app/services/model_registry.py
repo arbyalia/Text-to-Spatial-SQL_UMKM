@@ -16,7 +16,6 @@ class ModelSpec:
 MODELS: dict[str, ModelSpec] = {
     spec.key: spec
     for spec in (
-        ModelSpec("llama-3.3-70b", "groq", "llama-3.3-70b-versatile", note="non-reasoning"),
         ModelSpec(
             "qwen3.8-27b",
             "groq",

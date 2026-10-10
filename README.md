@@ -47,7 +47,7 @@ Contoh:
 curl -X POST localhost:8000/api/v1/search/ai -H 'Content-Type: application/json' -d '{
   "query": "coffee shop rating minimal 4.5 dalam 1 km dari sini",
   "latitude": -6.3657, "longitude": 106.8342,
-  "models": ["llama-3.3-70b"], "prompt_strategy": "few_shot"
+  "models": ["gpt-oss-20b"], "prompt_strategy": "few_shot"
 }'
 ```
 

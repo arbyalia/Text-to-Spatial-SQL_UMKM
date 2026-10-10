@@ -36,9 +36,9 @@ async def test_search_ai_returns_per_model_results(client):
     assert resp.status_code == 200
     body = resp.json()
     assert body["prompt_strategy"] == "few_shot"
-    assert body["results"]["llama-3.3-70b"]["status"] == "success"
-    assert body["results"]["llama-3.3-70b"]["data"] == [{"id": 1, "nama": "Kopi"}]
-    assert body["results"]["llama-3.3-70b"]["latency"]["db_ms"] == 3
+    assert body["results"]["gpt-oss-20b"]["status"] == "success"
+    assert body["results"]["gpt-oss-20b"]["data"] == [{"id": 1, "nama": "Kopi"}]
+    assert body["results"]["gpt-oss-20b"]["latency"]["db_ms"] == 3
     assert body["results"]["gpt-oss-120b"]["status"] == "blocked_by_sanitizer"
     assert body["results"]["gpt-oss-120b"]["data"] == []
 

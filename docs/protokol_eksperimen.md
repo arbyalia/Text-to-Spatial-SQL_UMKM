@@ -23,11 +23,11 @@ Daftar model ada di `app/services/model_registry.py`. Nama model dicek di dokume
 
 | Kunci | Model ID Groq | Catatan |
 |---|---|---|
-| `llama-3.3-70b` | `llama-3.3-70b-versatile` | Non-reasoning |
-| `qwen3.8-27b` | `qwen/qwen3.8-27b` (preview) | Reasoning dimatikan (`reasoning_effort: none`) |
 | `gpt-oss-120b` | `openai/gpt-oss-120b` | Reasoning tidak bisa dimatikan; dipakai `reasoning_effort: low` |
+| `gpt-oss-20b` | `openai/gpt-oss-20b` | Reasoning tidak bisa dimatikan; dipakai `reasoning_effort: low` |
+| `qwen3.8-27b` | `qwen/qwen3.8-27b` (preview) | Reasoning dimatikan (`reasoning_effort: none`) |
 
-Catatan untuk paper: gpt-oss tetap melakukan sedikit reasoning, jadi latensinya tidak sepenuhnya setara. Hal ini perlu ditulis sebagai batasan, atau gpt-oss diganti model non-reasoning jika tersedia saat eksperimen. Model preview bisa berubah atau dihapus, jadi catat tanggal pengujian dan versi persis.
+Catatan untuk paper: dua dari tiga model adalah gpt-oss (120B dan 20B), dan keduanya tetap melakukan sedikit reasoning, jadi latensinya tidak sepenuhnya setara. Hal ini perlu ditulis sebagai batasan, atau gpt-oss diganti model non-reasoning jika tersedia saat eksperimen. Model preview bisa berubah atau dihapus, jadi catat tanggal pengujian dan versi persis.
 
 ## Dataset uji
 
@@ -86,7 +86,11 @@ Uji statistik (dihitung otomatis oleh `experiments/evaluate.py`):
 
 ## Anggaran kuota (Groq free tier)
 
-Per Oktober 2026, batas untuk `gpt-oss-120b` dan `qwen3.8-27b` adalah 30 RPM, 1.000 RPD, 8.000 TPM, dan 200.000 TPD. Batas ini berlaku per model, sehingga ketiga model bisa dijalankan bersamaan. Batas `llama-3.3-70b-versatile` perlu dicek di halaman limits akun.
+Per Oktober 2026, batas untuk `gpt-oss-120b` dan `qwen3.8-27b` adalah 30 RPM, 1.000 RPD, 8.000 TPM, dan 200.000 TPD. Batas ini berlaku per model, sehingga ketiga model bisa dijalankan bersamaan.
+
+`gpt-oss-20b`: header respons API Groq pada 10 Oktober 2026 menunjukkan 1.000 request per hari (`x-ratelimit-limit-requests`) dan 8.000 TPM (`x-ratelimit-limit-tokens`). Batas RPM dan TPD tidak tersedia lewat API dan perlu dicek di halaman limits akun.
+
+`llama-3.3-70b-versatile` sudah tidak tersedia di Groq free tier sejak 16 Agustus 2026 (API mengembalikan `model_not_found`), sehingga diganti `gpt-oss-20b`.
 
 Prompt few-shot berukuran sekitar 1.300 token, jadi satu percobaan memakan kira-kira 1.500 token. Dengan 200.000 TPD, satu model bisa menjalankan sekitar 130 percobaan per hari. Batas 8.000 TPM juga berarti jeda antar-request minimal sekitar 12 detik (`--delay 12`).
 
@@ -103,6 +107,11 @@ Cek ulang batas di https://console.groq.com/settings/limits sebelum eksperimen f
 ## Riwayat perubahan protokol
 
 Setiap perubahan prompt, parameter model, sanitizer, atau metrik dicatat di sini. `PROMPT_VERSION` (di `app/services/prompt.py`) ikut tercatat di response `/api/v1/search/ai`, log JSONL, dan setiap baris output `run_benchmark.py`, sehingga hasil dari versi berbeda tidak tercampur.
+
+### 10 Oktober 2026, penggantian model (prompt tetap `v2-2026-10-10`)
+
+1. `llama-3.3-70b` (`llama-3.3-70b-versatile`) dihapus dari `model_registry.py` dan diganti `gpt-oss-20b` (`openai/gpt-oss-20b`, `reasoning_effort: low`). Alasan: Llama sudah dihapus dari Groq free tier sejak 16 Agustus 2026, dan request ke model itu mengembalikan `404 model_not_found`. Default `LLM_MODELS` menjadi `gpt-oss-120b,gpt-oss-20b,qwen3.8-27b`.
+2. Teks prompt dan parameter pemanggilan (`temperature = 0`, `max_output_tokens = 1024`, `seed = 42`, mode JSON) tidak berubah, sehingga `PROMPT_VERSION` tetap `v2-2026-10-10`. Hasil yang memakai `llama-3.3-70b` tidak dipakai dalam analisis.
 
 ### 10 Oktober 2026, prompt `v2-2026-10-10`
 

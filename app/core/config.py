@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
 
     # LLM
-    LLM_MODELS: str = "llama-3.3-70b,qwen3.8-27b,gpt-oss-120b"
+    LLM_MODELS: str = "gpt-oss-120b,gpt-oss-20b,qwen3.8-27b"
     LLM_TIMEOUT_S: float = 30.0
     DEFAULT_PROMPT_STRATEGY: str = "few_shot"
     FEW_SHOT_CATEGORY: str = "Coffee Shop"
