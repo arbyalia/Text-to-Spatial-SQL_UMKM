@@ -33,6 +33,21 @@ def test_ground_truth_passes_and_gets_limit():
         "JOIN public.districts AS d ON d.id = u.district_id GROUP BY d.name",
         "SELECT u.id FROM umkm.umkm u "
         "WHERE ST_DWithin(u.location::geography, u.location::geography, 2 * 1000)",
+        "SELECT u.id FROM umkm.umkm u "
+        "WHERE ST_DWithin(geography(u.location), CAST(u.location AS geography), 5000)",
+        "SELECT u.id FROM umkm.umkm u "
+        "WHERE ST_Distance(u.location::geography, u.location::geography) < 1500",
+        "SELECT u.id FROM umkm.umkm u "
+        "WHERE ST_Distance(u.location::geography, u.location::geography) <= 2.5 * 1000",
+        "SELECT u.id FROM umkm.umkm u "
+        "WHERE ST_Distance(u.location::geography, u.location::geography) BETWEEN 100 AND 5000",
+        "SELECT u.id, ST_Distance(u.location, u.location) AS d FROM umkm.umkm u ORDER BY d",
+        "SELECT u.id FROM umkm.umkm u UNION SELECT d.id FROM public.districts d",
+        "SELECT u.id FROM umkm.umkm u UNION ALL SELECT u.id FROM umkm.umkm u",
+        "SELECT u.id FROM umkm.umkm u WHERE u.rating > 4 "
+        "INTERSECT SELECT u.id FROM umkm.umkm u "
+        "WHERE ST_DWithin(u.location::geography, u.location::geography, 1000)",
+        "SELECT u.id FROM umkm.umkm u EXCEPT SELECT u.id FROM umkm.umkm u WHERE u.rating < 3",
     ],
 )
 def test_legitimate_queries_pass(sql):
@@ -65,7 +80,86 @@ def test_legitimate_queries_pass(sql):
             "WHERE ST_DWithin(u.location::geography, u.location::geography, 10 * 1000)",
             "radius",
         ),
-        ("SELECT u.id FROM umkm.umkm u UNION SELECT id FROM public.districts", "only SELECT"),
+        (
+            "SELECT u.id FROM umkm.umkm u WHERE ST_DWithin(u.location, u.location, 500)",
+            "ST_DWithin must use geography",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u WHERE ST_DWithin(u.location::geography, u.location, 500)",
+            "ST_DWithin must use geography",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u "
+            "WHERE ST_DWithin(u.location::geometry, u.location::geometry, 0.5)",
+            "ST_DWithin must use geography",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u "
+            "WHERE ST_DWithin(u.location::geography, u.location::geography, u.rating * 100000)",
+            "radius must be a numeric constant",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u WHERE ST_DWithin(u.location::geography, "
+            "u.location::geography, (SELECT 99999 FROM umkm.umkm LIMIT 1))",
+            "radius must be a numeric constant",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u "
+            "WHERE ST_DWithin(u.location::geography, u.location::geography, 5000 + 1)",
+            "radius",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u "
+            "WHERE ST_Distance(u.location::geography, u.location::geography) < 10000",
+            "radius exceeds",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u "
+            "WHERE ST_Distance(u.location::geography, u.location::geography) <= 5 * 1001",
+            "radius exceeds",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u "
+            "WHERE ST_Distance(u.location::geography, u.location::geography) BETWEEN 0 AND 9000",
+            "radius exceeds",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u "
+            "WHERE 9000 > ST_Distance(u.location::geography, u.location::geography)",
+            "radius exceeds",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u "
+            "WHERE ST_Distance(u.location::geography, u.location::geography) < u.rating * 1e6",
+            "radius must be a numeric constant",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u WHERE ST_Distance(u.location, u.location) < 0.01",
+            "ST_Distance must use geography",
+        ),
+        (
+            "SELECT u.jenis_umkm_id FROM umkm.umkm u GROUP BY u.jenis_umkm_id "
+            "HAVING MIN(ST_Distance(u.location::geography, u.location::geography)) < 1 "
+            "AND ST_Distance(MIN(u.location)::geography, MIN(u.location)::geography) < 20000",
+            "radius exceeds",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u UNION SELECT pg_sleep(1) FROM umkm.umkm",
+            "function not allowed",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u UNION ALL SELECT usename FROM pg_catalog.pg_user",
+            "table not allowed",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u EXCEPT SELECT u.id FROM umkm.umkm u "
+            "WHERE ST_DWithin(u.location::geography, u.location::geography, 50000)",
+            "radius",
+        ),
+        (
+            "SELECT u.id FROM umkm.umkm u UNION SELECT u.id FROM umkm.umkm u FOR UPDATE",
+            "locking",
+        ),
     ],
 )
 def test_dangerous_queries_blocked(sql, reason):
@@ -85,6 +179,15 @@ def test_limit_is_capped():
     assert result.valid
     assert result.sql.endswith(f"LIMIT {MAX_LIMIT}")
     assert validate_sql("SELECT u.id FROM umkm.umkm u LIMIT 5").sql.endswith("LIMIT 5")
+
+
+def test_set_operation_limit_is_outermost():
+    sql = validate_sql("SELECT u.id FROM umkm.umkm u UNION SELECT d.id FROM public.districts d").sql
+    assert sql.endswith("UNION SELECT d.id FROM public.districts AS d LIMIT 100")
+    capped = validate_sql(
+        "SELECT u.id FROM umkm.umkm u UNION ALL SELECT u.id FROM umkm.umkm u LIMIT 100000"
+    )
+    assert capped.sql.endswith(f"LIMIT {MAX_LIMIT}") and capped.sql.count("LIMIT") == 1
 
 
 def test_user_query_validation():

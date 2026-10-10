@@ -96,16 +96,71 @@ def _check_functions(expression: exp.Expression) -> str | None:
     return None
 
 
-def _check_radius(expression: exp.Expression) -> str | None:
+def _is_geography(node: exp.Expression) -> bool:
+    while isinstance(node, exp.Paren):
+        node = node.this
+    if isinstance(node, exp.Cast):
+        return node.to.is_type(exp.DataType.Type.GEOGRAPHY)
+    return isinstance(node, exp.Func) and _function_name(node) == "geography"
+
+
+def _check_radius_value(node: exp.Expression, func: str) -> str | None:
+    radius = _const_value(node)
+    if radius is None:
+        return f"{func} radius must be a numeric constant"
+    if radius > MAX_RADIUS_METER:
+        return f"radius exceeds {MAX_RADIUS_METER} m"
+    return None
+
+
+def _check_dwithin(expression: exp.Expression) -> str | None:
     for func in expression.find_all(exp.Func):
         if _function_name(func) != "st_dwithin":
             continue
         args = _function_args(func)
         if len(args) < 3:
-            continue
-        radius = _const_value(args[2])
-        if radius is not None and radius > MAX_RADIUS_METER:
-            return f"radius exceeds {MAX_RADIUS_METER} m"
+            return "ST_DWithin requires a radius"
+        if not (_is_geography(args[0]) and _is_geography(args[1])):
+            return "ST_DWithin must use geography"
+        reason = _check_radius_value(args[2], "ST_DWithin")
+        if reason:
+            return reason
+    return None
+
+
+def _distance_bound(comparison: exp.Expression) -> tuple[exp.Func, exp.Expression] | None:
+    """Return (ST_Distance call, upper bound) when the comparison caps a distance from above."""
+    if isinstance(comparison, exp.Between):
+        candidates = [(comparison.this, comparison.args.get("high"))]
+    elif isinstance(comparison, (exp.LT, exp.LTE)):
+        candidates = [(comparison.this, comparison.expression)]
+    elif isinstance(comparison, (exp.GT, exp.GTE)):
+        candidates = [(comparison.expression, comparison.this)]
+    else:
+        return None
+    for side, bound in candidates:
+        while isinstance(side, (exp.Paren, exp.Cast)):
+            side = side.this
+        if isinstance(side, exp.Func) and _function_name(side) == "st_distance":
+            return side, bound
+    return None
+
+
+def _check_distance_filters(expression: exp.Expression) -> str | None:
+    clauses = [*expression.find_all(exp.Where, exp.Having)]
+    clauses += [j.args["on"] for j in expression.find_all(exp.Join) if j.args.get("on")]
+    for clause in clauses:
+        for comparison in clause.find_all(exp.Between, exp.LT, exp.LTE, exp.GT, exp.GTE):
+            found = _distance_bound(comparison)
+            if found is None:
+                continue
+            func, bound = found
+            args = _function_args(func)
+            if len(args) < 2 or not (_is_geography(args[0]) and _is_geography(args[1])):
+                return "ST_Distance must use geography"
+            reason = _check_radius_value(bound, "ST_Distance")
+            if reason:
+                return reason
     return None
 
 
@@ -124,7 +179,7 @@ def _check_tables(expression: exp.Expression) -> str | None:
     return None
 
 
-def _apply_limit(expression: exp.Select) -> exp.Select:
+def _apply_limit(expression: exp.Query) -> exp.Query:
     limit = expression.args.get("limit")
     if limit is None:
         return expression.limit(DEFAULT_LIMIT)
@@ -132,6 +187,14 @@ def _apply_limit(expression: exp.Select) -> exp.Select:
     if value is None or value > MAX_LIMIT:
         return expression.limit(MAX_LIMIT)
     return expression
+
+
+def _select_branches(expression: exp.Expression) -> list[exp.Expression]:
+    while isinstance(expression, (exp.Subquery, exp.Paren)):
+        expression = expression.this
+    if isinstance(expression, exp.SetOperation):
+        return _select_branches(expression.this) + _select_branches(expression.expression)
+    return [expression]
 
 
 def validate_sql(sql: str | None) -> SqlValidation:
@@ -147,14 +210,15 @@ def validate_sql(sql: str | None) -> SqlValidation:
         return SqlValidation(False, "blocked_by_sanitizer", None, "multiple statements")
 
     expression = expressions[0]
-    if not isinstance(expression, exp.Select):
+    branches = _select_branches(expression)
+    if not all(isinstance(b, exp.Select) for b in branches):
         return SqlValidation(False, "blocked_by_sanitizer", None, "only SELECT is allowed")
-    if expression.args.get("into") is not None or expression.args.get("locks"):
+    if any(b.args.get("into") is not None or b.args.get("locks") for b in branches):
         return SqlValidation(
             False, "blocked_by_sanitizer", None, "SELECT INTO / locking not allowed"
         )
 
-    for check in (_check_tables, _check_functions, _check_radius):
+    for check in (_check_tables, _check_functions, _check_dwithin, _check_distance_filters):
         reason = check(expression)
         if reason:
             return SqlValidation(False, "blocked_by_sanitizer", None, reason)
