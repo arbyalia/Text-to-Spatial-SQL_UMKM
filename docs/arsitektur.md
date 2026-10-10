@@ -46,7 +46,7 @@ app/
 db/                        skrip setup database
 experiments/               dataset, runner, evaluator, metrik
 frontend.py                dashboard Streamlit
-tests/                     unit test
+tests/                     unit test; tests/integration butuh database dari db/setup.sh
 ```
 
 ## Keputusan desain

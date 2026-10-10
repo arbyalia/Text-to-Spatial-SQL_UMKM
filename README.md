@@ -24,11 +24,13 @@ PGDATABASE=ta_umkm AI_EXECUTOR_PASSWORD=ganti_password ./db/setup.sh
 
 uvicorn app.main:app --reload            # API di http://localhost:8000, dokumentasi di /docs
 streamlit run frontend.py                # dashboard di http://localhost:8501
-pytest                                   # unit test; tes integrasi butuh database dari db/setup.sh
+pytest                                   # unit test (tes integrasi di-skip)
+AI_EXECUTOR_PASSWORD=... pytest          # unit + integrasi; butuh database dari db/setup.sh
+ruff check . && ruff format --check .    # lint dan format, juga dijalankan CI
 python -m scripts.check_data_quality     # cek kualitas data UMKM
 ```
 
-Saat startup, API menolak berjalan jika `AI_EXECUTOR_DATABASE_URL` memakai role yang punya hak superuser. Endpoint `/api/v1/search/ai` dibatasi `RATE_LIMIT_PER_MINUTE` request per menit per API key atau IP, karena tiap request memakan kuota LLM. CI GitHub Actions menjalankan unit test dan tes integrasi dengan PostGIS.
+API hanya terhubung ke database lewat role read-only `AI_EXECUTOR_DATABASE_URL`; `DATABASE_URL` (owner) hanya dipakai skrip di `scripts/`. Saat startup, API menolak berjalan jika role read-only itu punya hak superuser. Endpoint `/api/v1/search/ai` dibatasi `RATE_LIMIT_PER_MINUTE` request per menit per API key atau IP, karena tiap request memakan kuota LLM. CI GitHub Actions menjalankan ruff, unit test, dan tes integrasi dengan PostGIS.
 
 ## Endpoint
 

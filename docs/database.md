@@ -5,7 +5,7 @@
 `db/setup.sh` membangun database dari nol:
 
 1. `db/01_init.sql`: ekstensi PostGIS, schema `umkm`, tabel `umkm.jenis_umkm` (isi awal: `1 = Coffee Shop`).
-2. `scripts/load_wilayah.py`: tabel wilayah `provinces → regencies → districts → villages` dari `yusufsyaifudin/wilayah-indonesia`, ditambah kolom `location geometry(Point, 4326)`.
+2. `python -m scripts.load_wilayah`: tabel wilayah `provinces → regencies → districts → villages` dari `yusufsyaifudin/wilayah-indonesia`, ditambah kolom `location geometry(Point, 4326)`.
 3. `backup_umkm.sql`: tabel `umkm.umkm` (240 coffee shop di Kota Depok).
 4. `db/02_readonly_role.sql`: role `readonly_ai_executor` (hanya `SELECT`, default transaksi read-only, timeout 5 detik).
 

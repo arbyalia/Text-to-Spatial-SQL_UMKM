@@ -16,6 +16,7 @@ Allowlist fungsi: semua fungsi PostGIS (`st_*`), fungsi SQL standar yang dikenal
 Pengujian:
 
 - `tests/test_security.py`: 16 kasus SQL berbahaya yang harus diblokir dan 5 kueri sah yang harus lolos (termasuk CTE, yang sebelumnya salah diblokir).
+- `tests/test_readonly_engine.py` dan `tests/integration/test_database.py`: endpoint API hanya memakai `readonly_engine`, dan role read-only cukup untuk `/health` serta `/api/v1/search/manual`.
 - `experiments/dataset/security_cases.jsonl`: 17 input bahasa natural berupa prompt injection dan pertanyaan di luar cakupan. Input ini dijalankan lewat runner untuk mengukur di lapis mana serangan berhenti.
 
 Batasan yang perlu disebut di paper: lapis 2 tidak bisa membuktikan bahwa SQL *benar*, hanya bahwa SQL *aman*. Kebenaran diukur terpisah lewat Execution Accuracy.
