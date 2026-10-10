@@ -15,7 +15,7 @@ Dokumen ini menjadi dasar Bab Metode pada paper. Isinya mengikuti keputusan 10 O
 |---|---|
 | Independen | Model (3 level), strategi prompt (zero-shot, few-shot) |
 | Dependen | Execution match, F1 hasil, status (valid/invalid), latensi LLM/DB/total, token |
-| Dikontrol | System prompt identik antarmodel, `temperature=0`, mode JSON, provider dan region sama, skema dan data sama, LIMIT dan timeout sama |
+| Dikontrol | System prompt identik antarmodel (versi dicatat sebagai `PROMPT_VERSION`), `temperature=0`, `max_output_tokens=1024`, `seed=42`, mode JSON, provider dan region sama, skema dan data sama, LIMIT dan timeout sama |
 
 ## Model
 
@@ -99,6 +99,20 @@ Rencana yang muat di free tier:
 | Keamanan: 17 kasus × 2 strategi × 1 ulangan | 34 | < 1 hari |
 
 Cek ulang batas di https://console.groq.com/settings/limits sebelum eksperimen final.
+
+## Riwayat perubahan protokol
+
+Setiap perubahan prompt, parameter model, sanitizer, atau metrik dicatat di sini. `PROMPT_VERSION` (di `app/services/prompt.py`) ikut tercatat di response `/api/v1/search/ai`, log JSONL, dan setiap baris output `run_benchmark.py`, sehingga hasil dari versi berbeda tidak tercampur.
+
+### 10 Oktober 2026, prompt `v1-2026-10-10`
+
+1. Sanitizer, batas radius: `ST_DWithin` wajib memakai geography pada dua argumen pertamanya dan radiusnya harus konstanta numerik ≤ 5000 m (aritmetika antar-konstanta boleh). Batas yang sama berlaku untuk perbandingan `ST_Distance` dengan konstanta (`<`, `<=`, `BETWEEN`) di `WHERE`, `HAVING`, dan `JOIN ... ON`, yang juga wajib memakai geography.
+2. Sanitizer, set operation: `UNION`, `UNION ALL`, `INTERSECT`, dan `EXCEPT` diizinkan jika setiap cabang SELECT dan lolos semua cek. LIMIT diterapkan di level terluar.
+3. Metrik: semua angka (int, float, Decimal, bukan bool) dinormalisasi menjadi `round(float(v), 2)`, sehingga 19 dan 19.0 dianggap sama.
+4. Suara mayoritas memakai > 0,5 (sebelumnya ≥ 0,5). Jumlah ulangan harus ganjil; `run_benchmark.py` memberi peringatan jika `--repeats` genap.
+5. Contoh few-shot: contoh pertama memakai kategori dari `FEW_SHOT_CATEGORY` (default "Coffee Shop"); jika kategori itu tidak ada di katalog, contoh ditulis tanpa filter kategori dan pertanyaannya memakai "UMKM". Contoh ketiga (`JOIN districts ON district_id`) diganti dengan "jumlah UMKM per kategori dalam radius 2 km dari koordinat -6.40, 106.80" (`JOIN umkm.jenis_umkm`, `GROUP BY` nama kategori, `ST_DWithin` dengan geography). Teks radius maksimum di aturan prompt diformat dari `MAX_RADIUS_METER`. Bagian prompt lain tidak berubah; dengan katalog saat ini, satu-satunya perbedaan teks prompt adalah contoh ketiga.
+6. Parameter model, identik untuk semua model: `max_output_tokens = 1024` dan `seed = 42` (dikirim sebagai `max_completion_tokens` dan `seed` ke provider OpenAI-compatible, `max_output_tokens` dan `seed` ke Gemini), di samping `temperature = 0`.
+7. Ketertelusuran: `PROMPT_VERSION = "v1-2026-10-10"` dicatat di response API, log JSONL, dan output benchmark.
 
 ## Ancaman validitas
 

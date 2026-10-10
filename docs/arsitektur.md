@@ -13,10 +13,10 @@ FastAPI
 asyncio.gather ── model 1 ── model 2 ── model 3   (client async, parameter identik)
   │  per model:
   │    LLM ──► {"sql": ...}
-  │    Lapis 2: sqlglot (SELECT tunggal, allowlist tabel/fungsi, batas radius, LIMIT)
+  │    Lapis 2: sqlglot (SELECT tunggal atau set operation, allowlist tabel/fungsi, batas radius, LIMIT)
   │    Lapis 3+4: eksekusi lewat readonly_engine, transaksi READ ONLY, statement_timeout
   ▼
-Respons per model: status, SQL, latensi (llm/db/total), token, data
+Respons per model: status, SQL, latensi (llm/db/total), token, data; plus prompt_version
   │  (opsional) satu baris JSON per request ke EXPERIMENT_LOG_PATH
   ▼
 Klien
@@ -56,7 +56,7 @@ tests/                     unit test; tests/integration butuh database dari db/s
 | FastAPI, PostgreSQL/PostGIS, Streamlit | Ditentukan dosen pembimbing |
 | SQLAlchemy async + asyncpg | Driver sync memblokir event loop saat beberapa LLM dipanggil paralel |
 | Client LLM dibuat sekali (cache) | Latensi tidak ikut mengukur setup koneksi TLS |
-| Semua model memakai `temperature=0`, mode JSON, prompt identik | Variabel independen hanya model dan strategi prompt |
+| Semua model memakai `temperature=0`, `max_output_tokens=1024`, `seed=42`, mode JSON, prompt identik | Variabel independen hanya model dan strategi prompt |
 | Model dikonfigurasi lewat `model_registry.py` + `LLM_MODELS` | Menambah atau mengganti model tanpa mengubah kode endpoint |
 | Kategori dan kecamatan dimuat dari database | Prompt otomatis ikut berubah saat dataset UMKM bertambah kategori |
 | API hanya memakai role read-only (`readonly_engine`) | Kredensial superuser/owner tidak perlu ada di server API; hanya skrip setup dan cek data yang memakainya |
